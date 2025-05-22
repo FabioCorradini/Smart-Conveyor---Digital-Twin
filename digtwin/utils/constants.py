@@ -16,3 +16,8 @@ STATE_MODELS_DIR = DATA_DIR / "state-models"
 
 if not STATE_MODELS_DIR.is_dir():
     STATE_MODELS_DIR.mkdir()
+
+ACTOR_DIR = DATA_DIR / "actors"
+
+if not ACTOR_DIR.is_dir():
+    ACTOR_DIR.mkdir()

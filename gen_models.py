@@ -1,4 +1,5 @@
 from digtwin.gui.models.dt_models import DTModel, DTStatefulModel
+from digtwin.gui.models.dt_actors import DTActor
 from digtwin.gui.nodes.dt_nodes import DTNode
 from digtwin.utils import constants
 import numpy as np
@@ -309,4 +310,12 @@ light_panel_green.add_state(
 )
 
 light_panel_green.save(constants.STATE_MODELS_DIR)
+
+
+box = DTActor("box",
+              r"./Data/obj/box.stl",
+              color=(0.0, 0.0, 1.0, 1.0),
+              )
+
+box.save(constants.ACTOR_DIR)
 

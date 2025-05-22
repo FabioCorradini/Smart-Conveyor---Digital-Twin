@@ -2,9 +2,13 @@ import QPanda3D.Panda3DWorld as p3dw
 from QPanda3D.QPanda3DWidget import QPanda3DWidget, QMouseEvent
 from PyQt5.QtCore import Qt, pyqtSignal
 from panda3d.core import NodePath, LVecBase3
+from panda3d.physics import ActorNode, ForceNode, LinearVectorForce
 import numpy as np
 from pathlib import Path
 import logging
+from dataclasses import dataclass
+import random
+from digtwin.gui.models.dt_actors import DTActor
 from digtwin.gui.models.dt_models import DTModel, DTStatefulModel
 from digtwin.gui.nodes.dt_nodes import DTNode, DTNodeState
 from digtwin.gui.dt_loadable import DTLoadable
@@ -108,7 +112,11 @@ class PandaBox(QPanda3DWidget):
 
 
 
-
+@dataclass
+class LivingActorNode:
+    model: NodePath
+    actor: ActorNode
+    physics: NodePath
 
 class P3dGui(p3dw.Panda3DWorld):
 
@@ -116,6 +124,8 @@ class P3dGui(p3dw.Panda3DWorld):
     model_list: list[DTModel]
     stateful_model_list: list[DTStatefulModel]
     nodes_list: list[DTNode]
+    actor_list: list[DTActor]
+    living_actors: dict[str, LivingActorNode]
     loadable_dict: dict[str,DTLoadable]
     cam_base_node: NodePath
     cam: NodePath
@@ -136,7 +146,10 @@ class P3dGui(p3dw.Panda3DWorld):
         self.model_list = []
         self.stateful_model_list = []
         self.nodes_list = []
+        self.actor_list = []
         self.loadable_dict = {}
+
+        self.living_actors = {}
 
         self.constVect = const_vect
         self.constMat = const_mat
@@ -185,6 +198,18 @@ class P3dGui(p3dw.Panda3DWorld):
         picker_node.addSolid(self.picker_ray)
         self.collision_handler = p3dw.CollisionHandlerQueue()
         self.my_traverser.addCollider(picker_np, self.collision_handler)
+
+        # setting physics
+        self.enable_particles()
+        self.spawner_node = self.render.attach_new_node("spawner_node")
+        self.spawner_node.setPos(0, -400, 1000)
+
+        gravityFN = ForceNode('world-forces')
+        gravityFNP = self.render.attachNewNode(gravityFN)
+        gravityForce = LinearVectorForce(0, 0, -9810)  # gravity acceleration
+        gravityFN.addForce(gravityForce)
+
+        self.physicsMgr.addLinearForce(gravityForce)
 
         # debug tools
 
@@ -310,6 +335,12 @@ class P3dGui(p3dw.Panda3DWorld):
                 self._add_stateful_model(dt_stateful_model)
                 self.loadable_dict[dt_stateful_model.name] = dt_stateful_model
 
+        if constants.ACTOR_DIR.is_dir():
+            for dt_actor_path in constants.ACTOR_DIR.glob("**/*.json"):
+                act_model = DTActor.load(dt_actor_path)
+                self._add_actor(act_model)
+                # actor are not reparented
+
 
         for name, dt_loadable in self.loadable_dict.items():
             if dt_loadable.parent is None:
@@ -331,6 +362,16 @@ class P3dGui(p3dw.Panda3DWorld):
         self.model_list.append(model_obj)
         _logger.info(f"Added model {model_obj.node_path_reference.name}")
 
+    def _add_actor(self, actor_obj: DTActor):
+        """
+            add a solid object to the simulation
+        """
+        actor_obj.node_path_reference = self.loader.load_model(actor_obj.model_path)
+        actor_obj.node_path_reference.name = actor_obj.name
+        actor_obj.to_color()
+        self.actor_list.append(actor_obj)
+        _logger.info(f"Added actor {actor_obj.node_path_reference.name}")
+
     def _add_stateful_model(self, model_obj: DTStatefulModel):
         """
             add a solid object to the simulation
@@ -347,6 +388,17 @@ class P3dGui(p3dw.Panda3DWorld):
         self.nodes_list.append(node_obj)
         _logger.info(f"Added node {node_obj.node_path_reference.name}")
 
+    def spawn_actors(self):
+        num = len(self.living_actors)
+        new_actor: DTActor = random.choice(self.actor_list)
+        node = NodePath(f"physics_{new_actor.name}_{num}")
+        node.reparentTo(self.spawner_node)
+        an = ActorNode(f"actor_{new_actor.name}_{num}")
+        anp = node.attachNewNode(an)
+        self.physicsMgr.attachPhysicalNode(an)
+        actor: NodePath = new_actor.node_path_reference.copyTo(anp)
+        actor.name = f"model_{new_actor.name}_{num}"
+        self.living_actors[f"{new_actor.name}_{num}"] = LivingActorNode(actor, an, node)
 
     #camera methods
 

@@ -18,17 +18,18 @@ class QtGui(qtw.QMainWindow):
         self.gui_3d = gui_3d
         layout_3d.addWidget(PandaBox(gui_3d))
 
-        clean_plate = qtw.QPushButton("Clean printer plate")
+        spawn_actor = qtw.QPushButton("Spawn object")
         self.follow_cam = qtw.QCheckBox("Lock cam on tool")
         default_view = qtw.QPushButton("Restore view")
 
         #clean_plate.clicked.connect(self.gui_3d.clear_printing_plate)
         self.follow_cam.clicked.connect(self.lock_cam)
         default_view.clicked.connect(self.restore_cam_default)
+        spawn_actor.clicked.connect(self.spawn_actors)
 
         control_3d_scene.addStretch()
 
-        control_3d_scene.addWidget(clean_plate)
+        control_3d_scene.addWidget(spawn_actor)
         control_3d_scene.addWidget(self.follow_cam)
         control_3d_scene.addWidget(default_view)
 
@@ -69,4 +70,7 @@ class QtGui(qtw.QMainWindow):
         self.gui_3d.camera_preset()
         if self.follow_cam.isChecked():
             self.follow_cam.setChecked(False)
+
+    def spawn_actors(self):
+        self.gui_3d.spawn_actors()
 
