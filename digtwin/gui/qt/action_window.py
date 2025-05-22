@@ -21,6 +21,7 @@ class DTActionWindow(QtWidgets.QWidget):
         if len(model) == 2:  # if only 2 state I can use a checkbox
             check_box = QtWidgets.QCheckBox()
             check_box.setText("Active")
+            check_box.setChecked(self.model.state_id == 1)
             check_box.toggled.connect(self.toggle_state)
             v_box.addWidget(check_box)
 
