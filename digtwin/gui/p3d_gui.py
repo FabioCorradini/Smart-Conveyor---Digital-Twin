@@ -1,7 +1,7 @@
 import QPanda3D.Panda3DWorld as p3dw
 from QPanda3D.QPanda3DWidget import QPanda3DWidget, QMouseEvent
 from PyQt5.QtCore import Qt, pyqtSignal
-from panda3d.core import NodePath
+from panda3d.core import NodePath, LVecBase3
 import numpy as np
 from pathlib import Path
 import logging
@@ -117,6 +117,8 @@ class P3dGui(p3dw.Panda3DWorld):
     stateful_model_list: list[DTStatefulModel]
     nodes_list: list[DTNode]
     loadable_dict: dict[str,DTLoadable]
+    cam_base_node: NodePath
+    cam: NodePath
 
     def __init__(self, const_vect: np.ndarray | None = None, const_mat: np.ndarray | None = None):
         """
@@ -313,8 +315,9 @@ class P3dGui(p3dw.Panda3DWorld):
         :type z: float
         """
 
-        pos = self.cam_base_node.getPos()
-        self.cam_base_node.setPos(pos[0] + x, pos[1], pos[2] + z)
+        shift_vec = self.render.get_relative_point(self.cam_base_node, LVecBase3(x, 0, z))
+        self.cam_base_node.setPos(shift_vec)
+
 
     def rotate_camera(self, rot, axis='z'):
         """
