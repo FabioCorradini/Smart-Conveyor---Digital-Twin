@@ -210,3 +210,28 @@ mushroom.add_state(
 
 mushroom.save(constants.STATE_MODELS_DIR)
 
+festo_switch = DTStatefulModel(
+    "festo_switch",
+)
+
+festo_switch.add_state(
+    model_path=r"./Data/obj/switch_festo_scaled.stl",
+    color=black_color,
+    position=np.array([-147.5, 629.5, 445.0]),
+    collision_center=np.array([0., 0., 0.]),
+    collision_radius=30.0
+)
+
+festo_switch.add_state(
+    model_path=r"./Data/obj/switch_festo_scaled.stl",
+    color=black_color,
+    position=np.array([-147.5, 629.5, 445.0]),
+    rotation_axis=np.array([1,0,0]),
+    rotation_angle=np.array([-np.pi/2]),
+    collision_center=np.array([0., 0., 0.]),
+    collision_radius=30.0
+)
+
+festo_switch.save(constants.STATE_MODELS_DIR)
+
+

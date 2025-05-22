@@ -223,7 +223,7 @@ class P3dGui(p3dw.Panda3DWorld):
                     return self.loadable_dict[node_name]
                 else:
                     try:
-                        node_name = node_name.split("_")[-2]
+                        node_name = "_".join(node_name.split("_")[:-1])
                         if node_name in self.loadable_dict:
                             return self.loadable_dict[node_name]
                         else:
