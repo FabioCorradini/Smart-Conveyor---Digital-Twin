@@ -315,6 +315,8 @@ light_panel_green.save(constants.STATE_MODELS_DIR)
 box = DTActor("box",
               r"./Data/obj/box.stl",
               color=(0.0, 0.0, 1.0, 1.0),
+              collision_center=np.array([0.0, 0.0, 0.0]),
+              collision_sides=(50.0, 50.0, 50.0)
               )
 
 box.save(constants.ACTOR_DIR)

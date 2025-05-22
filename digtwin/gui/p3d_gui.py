@@ -2,7 +2,7 @@ import QPanda3D.Panda3DWorld as p3dw
 from QPanda3D.QPanda3DWidget import QPanda3DWidget, QMouseEvent
 from PyQt5.QtCore import Qt, pyqtSignal
 from panda3d.core import NodePath, LVecBase3
-from panda3d.physics import ActorNode, ForceNode, LinearVectorForce
+from panda3d.physics import ActorNode, ForceNode, LinearVectorForce, PhysicsCollisionHandler
 import numpy as np
 from pathlib import Path
 import logging
@@ -191,15 +191,17 @@ class P3dGui(p3dw.Panda3DWorld):
         self.render.setShaderAuto()
 
         # setting collisions
-        self.my_traverser = p3dw.CollisionTraverser()
+        self.mouse_traverser = p3dw.CollisionTraverser()
         picker_node = p3dw.CollisionNode("mouseRay")
         picker_np = self.cam.attach_new_node(picker_node)
         self.picker_ray = p3dw.CollisionRay()
         picker_node.addSolid(self.picker_ray)
         self.collision_handler = p3dw.CollisionHandlerQueue()
-        self.my_traverser.addCollider(picker_np, self.collision_handler)
+        self.mouse_traverser.addCollider(picker_np, self.collision_handler)
 
         # setting physics
+        self.cTrav = p3dw.CollisionTraverser()
+
         self.enable_particles()
         self.spawner_node = self.render.attach_new_node("spawner_node")
         self.spawner_node.setPos(0, -400, 1000)
@@ -208,6 +210,11 @@ class P3dGui(p3dw.Panda3DWorld):
         gravityFNP = self.render.attachNewNode(gravityFN)
         gravityForce = LinearVectorForce(0, 0, -9810)  # gravity acceleration
         gravityFN.addForce(gravityForce)
+
+        self.pusher = PhysicsCollisionHandler()
+        c_node = p3dw.CollisionNode("collision_floor")
+        c_node.addSolid(p3dw.CollisionPlane(p3dw.Plane(p3dw.Vec3(0,0,1), p3dw.Point3(0, 0, 0))))
+        self.floor_plane = self.render.attach_new_node(c_node)
 
         self.physicsMgr.addLinearForce(gravityForce)
 
@@ -280,7 +287,7 @@ class P3dGui(p3dw.Panda3DWorld):
 
     def get_clicked_obj_name(self, pos_x: float, pos_y: float) -> DTLoadable | None:
         self.picker_ray.setFromLens(self.camNode, pos_x, pos_y)
-        self.my_traverser.traverse(self.render)
+        self.mouse_traverser.traverse(self.render)
 
         if self.collision_handler.getNumEntries() > 0:
             self.collision_handler.sortEntries()
@@ -399,6 +406,11 @@ class P3dGui(p3dw.Panda3DWorld):
         actor: NodePath = new_actor.node_path_reference.copyTo(anp)
         actor.name = f"model_{new_actor.name}_{num}"
         self.living_actors[f"{new_actor.name}_{num}"] = LivingActorNode(actor, an, node)
+
+        from_object: NodePath = anp.attachNewNode(p3dw.CollisionNode(f"col_node_{new_actor.name}_{num}"))
+        from_object.node().addSolid(new_actor.build_collision_solid())
+        self.pusher.addCollider(from_object, anp)
+        self.cTrav.addCollider(from_object, self.pusher)
 
     #camera methods
 
