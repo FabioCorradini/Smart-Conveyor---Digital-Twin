@@ -146,6 +146,8 @@ class P3dGui(p3dw.Panda3DWorld):
 
         self.exiting = False
 
+        self._ready = False
+
         # setting camera
 
         self.cam_base_node = self.render.attach_new_node("cam_base_node")
@@ -195,7 +197,11 @@ class P3dGui(p3dw.Panda3DWorld):
         fps = 30
         increment = 2*np.pi/fps
 
-        time.sleep(5)
+        while not self._ready:
+            time.sleep(1/fps)
+            if self.exiting:
+                break
+
         start_time = time.time()
         red_light_model = self.loadable_dict["lightpanel_red"]
         green_light_model = self.loadable_dict["lightpanel_green"]
@@ -203,11 +209,27 @@ class P3dGui(p3dw.Panda3DWorld):
         green_light_model: DTStatefulModel
         red_light_model.state_id = 1
 
+        gate_direction = True
+        gate_angle = np.pi/4
+        old_theta_gate = 0
+
         while not self.exiting:
             theta += increment
             for node in self.nodes_list:
-                node.set_theta((theta,))
-                node.to_position()
+                if node.name.count("conveyor_node"):
+                    node.set_theta((theta,))
+                    node.to_position()
+                if node.name == "gate_node":
+                    theta_gate = (theta/3) % gate_angle
+                    if old_theta_gate > theta_gate:
+                        gate_direction = not gate_direction
+
+                    if gate_direction:
+                        node.set_theta((-theta_gate,))
+                    else:
+                        node.set_theta((-gate_angle+theta_gate,))
+                    node.to_position()
+                    old_theta_gate = theta_gate
 
             if time.time() - start_time > 1.0:
 
@@ -298,6 +320,7 @@ class P3dGui(p3dw.Panda3DWorld):
                 _logger.info(f"Model {name} reparented to {parent_node.name}")
 
         self.set_positions()
+        self._ready = True
 
     def _add_model(self, model_obj: DTModel):
         """
