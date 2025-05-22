@@ -234,4 +234,46 @@ festo_switch.add_state(
 
 festo_switch.save(constants.STATE_MODELS_DIR)
 
+pushbutton_red = DTStatefulModel(
+    "pushbutton_red"
+)
+
+pushbutton_red.add_state(
+    model_path=r"./Data/obj/pushbutton_OFF_scaled.stl",
+    color=(0.5, 0.0, 0.0, 1.0),
+    collision_center=np.array([-150.0, 680.0, 444.0]),
+    collision_radius=20.0
+)
+
+pushbutton_red.add_state(
+    model_path=r"./Data/obj/pushbutton_ON_scaled.stl",
+    color=(1.0, 0.0, 0.0, 1.0),
+    collision_center=np.array([-150.0, 680.0, 444.0]),
+    collision_radius=20.0
+)
+
+pushbutton_red.save(constants.STATE_MODELS_DIR)
+
+pushbutton_green = DTStatefulModel(
+    "pushbutton_green"
+)
+
+pushbutton_green.add_state(
+    model_path=r"./Data/obj/pushbutton_OFF_scaled.stl",
+    color=(0.0, 0.5, 0.0, 1.0),
+    position=np.array([0.0, 34.0, 0.0]),
+    collision_center=np.array([-150.0, 680.0, 444.0]),
+    collision_radius=20.0
+)
+
+pushbutton_green.add_state(
+    model_path=r"./Data/obj/pushbutton_ON_scaled.stl",
+    color=(0.0, 1.0, 0.0, 1.0),
+    position=np.array([0.0, 34.0, 0.0]),
+    collision_center=np.array([-150.0, 680.0, 444.0]),
+    collision_radius=20.0
+)
+
+pushbutton_green.save(constants.STATE_MODELS_DIR)
+
 
