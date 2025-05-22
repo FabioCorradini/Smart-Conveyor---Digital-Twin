@@ -195,13 +195,36 @@ class P3dGui(p3dw.Panda3DWorld):
         fps = 30
         increment = 2*np.pi/fps
 
+        time.sleep(5)
         start_time = time.time()
+        red_light_model = self.loadable_dict["lightpanel_red"]
+        green_light_model = self.loadable_dict["lightpanel_green"]
+        red_light_model: DTStatefulModel
+        green_light_model: DTStatefulModel
+        red_light_model.state_id = 1
 
         while not self.exiting:
             theta += increment
             for node in self.nodes_list:
                 node.set_theta((theta,))
                 node.to_position()
+
+            if time.time() - start_time > 1.0:
+
+                if red_light_model.state_id == 0:
+                    red_light_model.state_id =1
+                else:
+                    red_light_model.state_id =0
+
+                if green_light_model.state_id == 0:
+                    green_light_model.state_id =1
+                else:
+                    green_light_model.state_id =0
+
+                red_light_model.to_state()
+                green_light_model.to_state()
+
+                start_time = time.time()
 
 
             time.sleep(1/fps)

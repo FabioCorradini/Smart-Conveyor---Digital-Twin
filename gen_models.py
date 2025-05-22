@@ -276,4 +276,37 @@ pushbutton_green.add_state(
 
 pushbutton_green.save(constants.STATE_MODELS_DIR)
 
+light_panel_red = DTStatefulModel(
+    "lightpanel_red"
+)
+
+light_panel_red.add_state(
+    model_path=r"./Data/obj/panel_light_scaled.stl",
+    color=(0.1, 0.0, 0.0, 1.0)
+)
+
+light_panel_red.add_state(
+    model_path=r"./Data/obj/panel_light_scaled.stl",
+    color=(1.0, 0.0, 0.0, 1.0)
+)
+
+light_panel_red.save(constants.STATE_MODELS_DIR)
+
+light_panel_green = DTStatefulModel(
+    "lightpanel_green"
+)
+
+light_panel_green.add_state(
+    model_path=r"./Data/obj/panel_light_scaled.stl",
+    position=np.array([0.0, 34.0, 0.0]),
+    color=(0.0, 0.1, 0.0, 1.0)
+)
+
+light_panel_green.add_state(
+    model_path=r"./Data/obj/panel_light_scaled.stl",
+    position=np.array([0.0, 34.0, 0.0]),
+    color=(0.0, 1.0, 0.0, 1.0)
+)
+
+light_panel_green.save(constants.STATE_MODELS_DIR)
 
