@@ -2,7 +2,8 @@ import json
 from pathlib import Path
 from typing import Union, Any
 
-from panda3d.core import Filename, NodePath, Loader, CollisionNode, CollisionSphere, CollisionBox, Point3, CollisionSolid
+from panda3d.core import (Filename, NodePath, Loader, CollisionNode, CollisionSphere, CollisionBox, Point3,
+                          CollisionSolid, BitMask32)
 import logging
 from digtwin.gui.dt_loadable import DTLoadable
 import numpy as np
@@ -227,6 +228,7 @@ class DTStatefulModel(DTLoadable):
                     except ValueError as e:
                         _logger.error(f"Failed to build collision ({self.name}_{state.name}) : {e}")
                         raise e
+                    c_node.setCollideMask(BitMask32(0x01))
                     c_node_np = state.node_path_reference.attach_new_node(c_node)
                     c_node_np.setTag("clickable", "1")
 
