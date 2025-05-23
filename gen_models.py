@@ -343,3 +343,20 @@ box = DTActor("box",
 
 box.save(constants.ACTOR_DIR)
 
+
+prox_plate_support = DTModel(
+    "prox_plate_support",
+    r"./Data/obj/prox_plate_support_scaled.stl",
+    color=white_color
+)
+
+prox_plate_support.save(constants.MODELS_DIR)
+
+prox_support = DTModel(
+    "prox_support",
+    r"./Data/obj/prox_support_scaled.stl",
+    color=orange_color
+)
+
+prox_support.save(constants.MODELS_DIR)
+
