@@ -148,7 +148,7 @@ gate_main_node.add_node_state(
     state_name="state1",
     const_shift_matrix=np.array([[0],[-116.1],[250.5]]),
     const_rotation_axis_matrix=np.array([[1],[0],[0]]),
-    var_rotation_angle_matrix=np.array([[1]]),
+    var_rotation_angle_matrix=np.array([[1]])
 )
 
 gate_main_node.save(constants.NODES_DIR)
@@ -157,7 +157,12 @@ gate = DTModel(
     "gate",
     r"./Data/obj/gate_scaled.stl",
     gate_main_node,
-    position = np.array((0.0, 116.1, -250.5))
+    position = np.array((0.0, 116.1, -250.5)),
+    collision_center=np.array([-5.0, -158.0, 299.0]),
+    collision_sides=(60.0, 75.0, 50.0),
+    collision_rotation_axis=np.array([1.0, 0.0, 0.0]),
+    collision_rotation_angle=-np.pi/6,
+    solid=True
 )
 
 gate.color = black_color
