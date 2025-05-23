@@ -215,7 +215,7 @@ class P3dGui(p3dw.Panda3DWorld):
         self.pusher = PhysicsCollisionHandler()
         c_node = p3dw.CollisionNode("collision_floor")
         c_node.addSolid(p3dw.CollisionPlane(p3dw.Plane(p3dw.Vec3(0,0,1), p3dw.Point3(0, 0, 0))))
-        c_node.setCollideMask(BitMask32(0x10))
+        c_node.setCollideMask(BitMask32(0x02))
         self.floor_plane = self.render.attach_new_node(c_node)
 
         self.physicsMgr.addLinearForce(gravityForce)
@@ -411,7 +411,8 @@ class P3dGui(p3dw.Panda3DWorld):
 
         from_object: NodePath = anp.attachNewNode(p3dw.CollisionNode(f"col_node_{new_actor.name}_{num}"))
         from_object.node().addSolid(new_actor.build_collision_solid())
-        from_object.node().setFromCollideMask(BitMask32(0x10))
+        new_actor.align_collision_solid(from_object)
+        from_object.node().setFromCollideMask(BitMask32(0x02))
         self.pusher.addCollider(from_object, anp)
         self.cTrav.addCollider(from_object, self.pusher)
 

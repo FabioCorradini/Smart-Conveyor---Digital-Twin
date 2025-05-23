@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Union, Any
 
 from panda3d.core import (Filename, NodePath, Loader, CollisionNode, CollisionSphere, CollisionBox, Point3,
-                          CollisionSolid, BitMask32)
+                          CollisionSolid, BitMask32, LQuaternion, LVector3f)
 import logging
 from digtwin.gui.dt_loadable import DTLoadable
 import numpy as np
@@ -26,7 +26,11 @@ class DTModel(DTLoadable):
                  rotation_angle = np.zeros(1),
                  collision_center: np.ndarray | None = None,
                  collision_radius = 0.0,
-                 collision_sides:  tuple[float, float, float] = (0.0, 0.0, 0.0)
+                 collision_sides:  tuple[float, float, float] = (0.0, 0.0, 0.0),
+                 collision_rotation_axis =  np.zeros(3),
+                 collision_rotation_angle = 0.0,
+                 clickable: bool = False,
+                 solid: bool = False,
                  ):
 
         super().__init__(name, parent)
@@ -38,6 +42,10 @@ class DTModel(DTLoadable):
         self.collision_center = collision_center
         self.collision_radius = collision_radius
         self.collision_sides = collision_sides
+        self.collision_rotation_axis = collision_rotation_axis
+        self.collision_rotation_angle = collision_rotation_angle
+        self.clickable = clickable
+        self.solid = solid
 
     @property
     def model_path(self) -> Filename:
@@ -60,6 +68,10 @@ class DTModel(DTLoadable):
         data_dict["collision_center"] = self.collision_center.tolist() if self.collision_center is not None else None
         data_dict["collision_radius"] = self.collision_radius
         data_dict["collision_sides"] = self.collision_sides
+        data_dict["collision_rotation_axis"] = self.collision_rotation_axis.tolist()
+        data_dict["collision_rotation_angle"] = self.collision_rotation_angle
+        data_dict["clickable"] = self.clickable
+        data_dict["solid"] = self.solid
         return data_dict
 
     @staticmethod
@@ -74,25 +86,68 @@ class DTModel(DTLoadable):
             np.array(data_dict["rotation_angle"]),
             np.array(data_dict["collision_center"]) if data_dict["collision_center"] is not None else None,
             data_dict["collision_radius"] if "collision_radius" in data_dict else 0.0,
-            data_dict["collision_sides"] if "collision_sides" in data_dict else (0.0, 0.0, 0.0)
+            data_dict["collision_sides"] if "collision_sides" in data_dict else (0.0, 0.0, 0.0),
+            np.array(data_dict["collision_rotation_axis"]),
+            data_dict["collision_rotation_angle"],
+            data_dict["clickable"],
+            data_dict["solid"]
         )
 
     def build_collision_solid(self) -> CollisionSolid:
         if self.collision_radius > 0:
             return CollisionSphere(
-                self.collision_center[0],
-                self.collision_center[1],
-                self.collision_center[2],
+                0.0,
+                0.0,
+                0.0,
                 self.collision_radius)
         elif self.collision_sides[0] > 0 or self.collision_sides[1] > 0 or self.collision_sides[2] > 0:
             return CollisionBox(
-                Point3(self.collision_center[0], self.collision_center[1], self.collision_center[2]),
+                Point3(0.0, 0.0, 0.0),
                 self.collision_sides[0],
                 self.collision_sides[1],
                 self.collision_sides[2]
             )
         else:
             raise ValueError("No valid collision solid found")
+
+    def align_collision_solid(self, collision_node_path: NodePath):
+        if self.collision_radius <= 0: # if is a sphere alignment is not done
+            q = LQuaternion()
+            if self.collision_rotation_axis.any():
+                q.set_from_axis_angle_rad(self.collision_rotation_angle,
+                                          LVector3f(*self.collision_rotation_axis.tolist()))
+                collision_node_path.set_quat(q)
+        collision_node_path.set_pos(*self.collision_center.tolist())
+
+
+    def reparent(self, parent: NodePath):
+        super().reparent(parent)
+        self.set_collision()
+
+    def set_collision(self):
+        if self.node_path_reference is not None:
+            if self.collision_center is not None:
+                c_node = CollisionNode(f"{self.name}_collision")
+                try:
+                    c_node.addSolid(self.build_collision_solid())
+                except ValueError as e:
+                    _logger.error(f"Failed to build collision ({self.name}) : {e}")
+                    raise e
+                bit_mask = 0x00
+                if self.clickable:
+                    bit_mask |= 0x01
+                if self.solid:
+                    bit_mask |= 0x02
+
+                c_node.setCollideMask(BitMask32(bit_mask))
+                c_node_np = self.node_path_reference.attach_new_node(c_node)
+                # c_node_np.show()
+                self.align_collision_solid(c_node_np)
+                if self.clickable:
+                    c_node_np.setTag("clickable", "1")
+        else:
+            _logger.warning(f"Tryng to set collision to uninit solid {self.name}")
+
 
 
 class DTStatefulModel(DTLoadable):
@@ -178,7 +233,10 @@ class DTStatefulModel(DTLoadable):
                   rotation_angle=np.zeros(1),
                   collision_center: np.ndarray | None= None,
                   collision_radius=0.0,
-                  collision_sides: tuple[float, float, float] = (0.0, 0.0, 0.0)
+                  collision_sides: tuple[float, float, float] = (0.0, 0.0, 0.0),
+                  collision_rotation_axis =  np.zeros(3),
+                  collision_rotation_angle = 0.0,
+                  solid: bool = False
                   ):
 
         num_id = len(self.states)
@@ -189,9 +247,15 @@ class DTStatefulModel(DTLoadable):
         if model_path is None:
             model_path = self.states[num_id-1].model_path
 
+        if collision_center is not None:
+            clickable = True
+        else:
+            clickable = False
+
 
         self.states.append(DTModelState(num_id, color, model_path, position, rotation_axis,
-                                        rotation_angle, collision_center, collision_radius, collision_sides))
+                                        rotation_angle, collision_center, collision_radius, collision_sides,
+                                        collision_rotation_axis, collision_rotation_angle, clickable, solid))
 
     def populate(self, loader: Loader) -> None:
         for state in self.states:
@@ -220,18 +284,7 @@ class DTStatefulModel(DTLoadable):
     def reparent(self, parent: NodePath):
         for state in self.states:
             if state.node_path_reference is not None:
-                state.node_path_reference.reparentTo(parent)
-                if state.collision_center is not None:
-                    c_node = CollisionNode("collision")
-                    try:
-                        c_node.addSolid(state.build_collision_solid())
-                    except ValueError as e:
-                        _logger.error(f"Failed to build collision ({self.name}_{state.name}) : {e}")
-                        raise e
-                    c_node.setCollideMask(BitMask32(0x01))
-                    c_node_np = state.node_path_reference.attach_new_node(c_node)
-                    c_node_np.setTag("clickable", "1")
-
+                state.reparent(parent)
                 state.node_path_reference.stash()
             else:
                 _logger.warning(f"Tried to reparent uninitialized state {self.name}_{state.num_id} to parent {parent}")
@@ -248,7 +301,11 @@ class DTModelState(DTModel):
                  rotation_angle=np.zeros(1),
                  collision_center: np.ndarray | None = None,
                  collision_radius: float = 0.0,
-                 collision_sides: tuple[float, float, float] = (0.0, 0.0, 0.0)
+                 collision_sides: tuple[float, float, float] = (0.0, 0.0, 0.0),
+                 collision_rotation_axis =  np.zeros(3),
+                 collision_rotation_angle = 0.0,
+                 clickable: bool = False,
+                 solid: bool = False,
                  ):
 
         super().__init__(
@@ -260,7 +317,11 @@ class DTModelState(DTModel):
             rotation_angle = rotation_angle,
             collision_center = collision_center,
             collision_radius = collision_radius,
-            collision_sides = collision_sides
+            collision_sides = collision_sides,
+            collision_rotation_axis= collision_rotation_axis,
+            collision_rotation_angle=collision_rotation_angle,
+            clickable= clickable,
+            solid= solid
         )
 
 

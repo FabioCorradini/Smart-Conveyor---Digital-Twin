@@ -13,7 +13,13 @@ orange_color = (decode_sRGB_float(0xff), decode_sRGB_float(0x99), decode_sRGB_fl
 
 main_conveyor = DTModel(
     "main_frame",
-    r"./Data/obj/fixed_conveyor_scaled.stl")
+    r"./Data/obj/fixed_conveyor_scaled.stl",
+    collision_center=np.array([0.0, 332.0, 548.0]),
+    collision_sides = (100.0, 480.0, 30.0),
+    collision_rotation_axis = np.array([1.0, 0.0, 0.0]),
+    collision_rotation_angle= np.pi/4,
+    solid=True
+)
 
 main_conveyor.color = white_color
 
@@ -21,7 +27,13 @@ main_conveyor.save(constants.MODELS_DIR)
 
 main_frame= DTModel(
     "main_conveyor",
-    r"./Data/obj/Fixed_frame_lite_scaled.stl")
+    r"./Data/obj/Fixed_frame_lite_scaled.stl",
+    collision_center=np.array([0.0, -280.0, 410.0]),
+    collision_sides = (125.0, 290.0, 20.0),
+    collision_rotation_axis = np.array([1.0, 0.0, 0.0]),
+    collision_rotation_angle= -np.pi/6,
+    solid=True
+)
 
 main_frame.color = (decode_sRGB_float(0x4b), decode_sRGB_float(0x73), decode_sRGB_float(0x9f), 1.0)
 
@@ -112,7 +124,12 @@ palette= DTModel(
     parent= conveyor_main_node,
     position = p1 - pa,
     rotation_axis = np.array([1,0,0]),
-    rotation_angle = np.array([alpha])
+    rotation_angle = np.array([alpha]),
+    collision_center=np.array([0.0, 0.0, 22.0]),
+    collision_sides=(70.0, 3.0, 22.0),
+    collision_rotation_axis=np.array([0.0, 0.0, 0.0]),
+    collision_rotation_angle=0,
+    solid=True
     )
 
 for i in range(9):
