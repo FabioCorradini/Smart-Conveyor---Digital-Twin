@@ -21,3 +21,8 @@ ACTOR_DIR = DATA_DIR / "actors"
 
 if not ACTOR_DIR.is_dir():
     ACTOR_DIR.mkdir()
+
+SENSORS_DIR = DATA_DIR / "sensors"
+
+if not SENSORS_DIR.is_dir():
+    SENSORS_DIR.mkdir()

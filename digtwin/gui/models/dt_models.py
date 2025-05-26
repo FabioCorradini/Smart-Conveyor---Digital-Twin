@@ -31,6 +31,7 @@ class DTModel(DTLoadable):
                  collision_rotation_angle = 0.0,
                  clickable: bool = False,
                  solid: bool = False,
+                 detectable: bool = False
                  ):
 
         super().__init__(name, parent)
@@ -46,6 +47,7 @@ class DTModel(DTLoadable):
         self.collision_rotation_angle = collision_rotation_angle
         self.clickable = clickable
         self.solid = solid
+        self.detectable = detectable
 
     @property
     def model_path(self) -> Filename:
@@ -72,6 +74,7 @@ class DTModel(DTLoadable):
         data_dict["collision_rotation_angle"] = self.collision_rotation_angle
         data_dict["clickable"] = self.clickable
         data_dict["solid"] = self.solid
+        data_dict["detectable"] = self.detectable
         return data_dict
 
     @staticmethod
@@ -90,18 +93,19 @@ class DTModel(DTLoadable):
             np.array(data_dict["collision_rotation_axis"]),
             data_dict["collision_rotation_angle"],
             data_dict["clickable"],
-            data_dict["solid"]
+            data_dict["solid"],
+            data_dict["detectable"]
         )
 
     def build_collision_solid(self) -> CollisionSolid:
         if self.collision_radius > 0:
-            return CollisionSphere(
+            solid = CollisionSphere(
                 0.0,
                 0.0,
                 0.0,
                 self.collision_radius)
         elif self.collision_sides[0] > 0 or self.collision_sides[1] > 0 or self.collision_sides[2] > 0:
-            return CollisionBox(
+            solid = CollisionBox(
                 Point3(0.0, 0.0, 0.0),
                 self.collision_sides[0],
                 self.collision_sides[1],
@@ -109,6 +113,12 @@ class DTModel(DTLoadable):
             )
         else:
             raise ValueError("No valid collision solid found")
+
+        if self.detectable:
+            solid.set_tangible(False)
+
+        return solid
+
 
     def align_collision_solid(self, collision_node_path: NodePath):
         if self.collision_radius <= 0: # if is a sphere alignment is not done
@@ -138,10 +148,12 @@ class DTModel(DTLoadable):
                     bit_mask |= 0x01
                 if self.solid:
                     bit_mask |= 0x02
+                if self.detectable:
+                    bit_mask |= 0x04
 
                 c_node.setCollideMask(BitMask32(bit_mask))
                 c_node_np = self.node_path_reference.attach_new_node(c_node)
-                # c_node_np.show()
+                c_node_np.show()
                 self.align_collision_solid(c_node_np)
                 if self.clickable:
                     c_node_np.setTag("clickable", "1")
@@ -235,8 +247,7 @@ class DTStatefulModel(DTLoadable):
                   collision_radius=0.0,
                   collision_sides: tuple[float, float, float] = (0.0, 0.0, 0.0),
                   collision_rotation_axis =  np.zeros(3),
-                  collision_rotation_angle = 0.0,
-                  solid: bool = False
+                  collision_rotation_angle = 0.0
                   ):
 
         num_id = len(self.states)
@@ -253,14 +264,14 @@ class DTStatefulModel(DTLoadable):
             clickable = False
 
 
-        self.states.append(DTModelState(num_id, color, model_path, position, rotation_axis,
+        self.states.append(DTModelState(f"{self.name}_{num_id}", color, model_path, position, rotation_axis,
                                         rotation_angle, collision_center, collision_radius, collision_sides,
-                                        collision_rotation_axis, collision_rotation_angle, clickable, solid))
+                                        collision_rotation_axis, collision_rotation_angle, clickable))
 
     def populate(self, loader: Loader) -> None:
         for state in self.states:
             state.node_path_reference = loader.load_model(state.model_path)
-            state.node_path_reference.name = f"{self.name}_{state.name}"
+            state.node_path_reference.name = state.name
 
     def to_dict(self) -> dict:
         data_dict = super().to_dict()
@@ -293,7 +304,7 @@ class DTStatefulModel(DTLoadable):
 
 class DTModelState(DTModel):
     def __init__(self,
-                 num_id: int,
+                 name: str,
                  color: tuple[float, float, float, float] | None,
                  model_path: str,
                  position=np.zeros(3),
@@ -306,10 +317,11 @@ class DTModelState(DTModel):
                  collision_rotation_angle = 0.0,
                  clickable: bool = False,
                  solid: bool = False,
+                 detectable: bool = False,
                  ):
 
         super().__init__(
-            name = str(num_id),
+            name = name,
             model_path = model_path,
             color = color,
             position = position,
@@ -321,7 +333,8 @@ class DTModelState(DTModel):
             collision_rotation_axis= collision_rotation_axis,
             collision_rotation_angle=collision_rotation_angle,
             clickable= clickable,
-            solid= solid
+            solid= solid,
+            detectable=detectable
         )
 
 

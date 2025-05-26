@@ -1,6 +1,7 @@
 from digtwin.gui.models.dt_models import DTModel, DTStatefulModel
 from digtwin.gui.models.dt_actors import DTActor
 from digtwin.gui.nodes.dt_nodes import DTNode
+from digtwin.gui.models.dt_sensors import DTSensor
 from digtwin.utils import constants
 import numpy as np
 from panda3d.core import decode_sRGB_float
@@ -359,4 +360,30 @@ prox_support = DTModel(
 )
 
 prox_support.save(constants.MODELS_DIR)
+
+prox1 = DTSensor(
+    "prox1"
+)
+
+prox1.add_state(
+    model_path=r"./Data/obj/prox_switch.stl",
+    position=np.array([88.0, 609.5, 915.5]),
+    rotation_axis = np.array([1.0, 0.0, 0.0]),
+    rotation_angle=  np.array([-np.pi / 4]),
+    collision_center=np.array([-94.0, 15.0, 0.0]),
+    collision_sides=(75.0, 10.0, 10.0)
+)
+
+prox1.add_state(
+    model_path=r"./Data/obj/prox_switch.stl",
+    color=(1.0, 0.0, 0.0, 1.0),
+    position=np.array([88.0, 609.5, 915.5]),
+    rotation_axis = np.array([1.0, 0.0, 0.0]),
+    rotation_angle= np.array([-np.pi / 4]),
+    collision_center=np.array([-94.0, 15.0, 0.0]),
+    collision_sides=(75.0, 10.0, 10.0)
+)
+
+prox1.save(constants.SENSORS_DIR)
+
 

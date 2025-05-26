@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import random
 from digtwin.gui.models.dt_actors import DTActor
 from digtwin.gui.models.dt_models import DTModel, DTStatefulModel
+from digtwin.gui.models.dt_sensors import DTSensor
 from digtwin.gui.nodes.dt_nodes import DTNode, DTNodeState
 from digtwin.gui.dt_loadable import DTLoadable
 from digtwin.utils import constants
@@ -190,7 +191,7 @@ class P3dGui(p3dw.Panda3DWorld):
         # dir_light.setShadowCaster(True, 512, 512)
         self.render.setShaderAuto()
 
-        # setting collisions
+        # setting mouse collisions
         self.mouse_traverser = p3dw.CollisionTraverser()
         picker_node = p3dw.CollisionNode("mouseRay")
         picker_np = self.cam.attach_new_node(picker_node)
@@ -220,10 +221,15 @@ class P3dGui(p3dw.Panda3DWorld):
 
         self.physicsMgr.addLinearForce(gravityForce)
 
+        self.pusher.addInPattern("into_%in")
+        self.pusher.addOutPattern("out_%in")
+
         # debug tools
 
         self._debug_routine = Thread(target=self.debug_routine)
         self._debug_routine.start()
+
+        # self.messenger.toggle_verbose()
 
 
     def debug_routine(self):
@@ -350,6 +356,12 @@ class P3dGui(p3dw.Panda3DWorld):
                 self._add_actor(act_model)
                 # actor are not reparented
 
+        if constants.SENSORS_DIR.is_dir():
+            for dt_sensor_path in constants.SENSORS_DIR.glob("**/*.json"):
+                dt_sensor = DTSensor.load(dt_sensor_path)
+                self._add_stateful_model(dt_sensor)
+                self.loadable_dict[dt_sensor.name] = dt_sensor
+
 
         for name, dt_loadable in self.loadable_dict.items():
             if dt_loadable.parent is None:
@@ -412,8 +424,9 @@ class P3dGui(p3dw.Panda3DWorld):
         from_object: NodePath = anp.attachNewNode(p3dw.CollisionNode(f"col_node_{new_actor.name}_{num}"))
         from_object.node().addSolid(new_actor.build_collision_solid())
         new_actor.align_collision_solid(from_object)
-        from_object.node().setFromCollideMask(BitMask32(0x02))
+        from_object.node().setFromCollideMask(BitMask32(0x06)) # solid anf detectable
         self.pusher.addCollider(from_object, anp)
+
         self.cTrav.addCollider(from_object, self.pusher)
 
     #camera methods
