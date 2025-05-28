@@ -4,7 +4,7 @@ from digtwin.gui.nodes.dt_nodes import DTNode
 from digtwin.gui.models.dt_sensors import DTSensor
 from digtwin.utils import constants
 import numpy as np
-from panda3d.core import decode_sRGB_float
+from panda3d.core import decode_sRGB_float, LQuaternion, LVector3f
 
 # models
 
@@ -385,5 +385,50 @@ prox1.add_state(
 )
 
 prox1.save(constants.SENSORS_DIR)
+
+prox2_rot1_axis = (1, 0, 0)
+prox2_rot1_angle = 150 / 180 * np.pi
+
+prox2_q1 = LQuaternion()
+
+prox2_q1.set_from_axis_angle_rad(prox2_rot1_angle, LVector3f(*prox2_rot1_axis))
+
+
+prox2_rot2_axis = (0, 0, 1)
+prox2_rot2_angle = 210 / 180 * np.pi
+
+prox2_q2 = LQuaternion(  )
+
+prox2_q2.set_from_axis_angle_rad(prox2_rot2_angle, LVector3f(*prox2_rot2_axis))
+
+prox2_q = prox2_q2 * prox2_q1
+prox2_q.normalize()
+
+
+prox2 = DTSensor(
+    "prox2"
+)
+
+prox2.add_state(
+    model_path=r"./Data/obj/prox_switch.stl",
+    position=np.array([-114.0, -77.0, 328.0]),
+    rotation_axis = np.array(prox2_q.get_axis_normalized()),
+    rotation_angle=  np.array([prox2_q.get_angle()/180*np.pi]),
+    collision_center=np.array([-94.0, 15.0, 0.0]),
+    collision_sides=(75.0, 10.0, 10.0)
+)
+
+prox2.add_state(
+    model_path=r"./Data/obj/prox_switch.stl",
+    color=(1.0, 0.0, 0.0, 1.0),
+    position=np.array([-114.0, -77.0, 328.0]),
+    rotation_axis = np.array(prox2_q.get_axis_normalized()),
+    rotation_angle=  np.array([prox2_q.get_angle()/180*np.pi]),
+    collision_center=np.array([-94.0, 15.0, 0.0]),
+    collision_sides=(75.0, 10.0, 10.0)
+)
+
+prox2.save(constants.SENSORS_DIR)
+
 
 
