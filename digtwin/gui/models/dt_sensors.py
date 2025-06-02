@@ -16,12 +16,12 @@ class SensorTrigger(DirectObject.DirectObject):
         self.sensor_object = sensor_object
 
     def _turn_on(self, a):
-        _logger.info(f"Turning on sensor {self.sensor_object.name}")
+        # _logger.info(f"Turning on sensor {self.sensor_object.name}")
         self.sensor_object.state_id = 1
         self.sensor_object.to_state()
 
     def _turn_off(self, b):
-        _logger.info(f"Turning on sensor {self.sensor_object.name}")
+        # _logger.info(f"Turning on sensor {self.sensor_object.name}")
         self.sensor_object.state_id = 0
         self.sensor_object.to_state()
 

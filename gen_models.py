@@ -491,4 +491,64 @@ piston_in_model = DTModel(
 
 piston_in_model.save(constants.MODELS_DIR)
 
+plunger_box = DTModel(
+    name = "plunger_box",
+    color=(1.0, 0.0, 0.0, 1.0),
+    parent=piston_in_node,
+    model_path=r"./Data/obj/plunger_box.stl",
+    position=np.array([-6, -99.3594, 70.0106]),
+    rotation_axis=np.array([1.0, 0.0, 0.0]),
+    rotation_angle= np.array([54.2897 / 180 * np.pi]),
+    collision_center=np.array([0.0, 0.0, 0.0]),
+    # collision_sides=(2.5, 2.5, 5.0),
+    collision_sides=(25, 25, 5.0),
+    detectable=True
+)
 
+plunger_box.save(constants.MODELS_DIR)
+
+piston_sens1 = DTSensor(
+    name = "piston_sens1",
+    parent=piston_ext_model
+)
+
+piston_sens1.add_state(
+    model_path=r"./Data/obj/piston_sens.stl",
+    color=None,
+    position=np.array([-17.5, 0, -30]),
+    collision_center=np.array([11.5, 0.0, 0.0]),
+    collision_sides=(9, 9, 12.5)
+)
+
+piston_sens1.add_state(
+    model_path=r"./Data/obj/piston_sens.stl",
+    color=(1.0, 0.0, 0.0, 1.0),
+    position=np.array([-17.5, 0, -30]),
+    collision_center=np.array([11.5, 0.0, 0.0]),
+    collision_sides=(9, 9, 12.5)
+)
+
+piston_sens1.save(constants.SENSORS_DIR)
+
+piston_sens2 = DTSensor(
+    name = "piston_sens2",
+    parent=piston_ext_model
+)
+
+piston_sens2.add_state(
+    model_path=r"./Data/obj/piston_sens.stl",
+    color=None,
+    position=np.array([-17.5, 0, -84]),
+    collision_center=np.array([11.5, 0.0, 0.0]),
+    collision_sides=(9, 9, 12.5)
+)
+
+piston_sens2.add_state(
+    model_path=r"./Data/obj/piston_sens.stl",
+    color=(1.0, 0.0, 0.0, 1.0),
+    position=np.array([-17.5, 0, -84]),
+    collision_center=np.array([11.5, 0.0, 0.0]),
+    collision_sides=(9, 9, 12.5)
+)
+
+piston_sens2.save(constants.SENSORS_DIR)

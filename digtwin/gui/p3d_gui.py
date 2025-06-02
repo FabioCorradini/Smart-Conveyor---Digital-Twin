@@ -401,6 +401,9 @@ class P3dGui(p3dw.Panda3DWorld):
                 parent_node = self.loadable_dict[dt_loadable.parent].node_path_reference
                 dt_loadable.reparent(parent_node)
                 _logger.info(f"Model {name} reparented to {parent_node.name}")
+                if isinstance(dt_loadable, DTModel) and dt_loadable.detectable and dt_loadable.collision_node_reference is not None:
+                    _logger.info(f"Model {dt_loadable.name} clickable, added to traverser")
+                    self.cTrav.addCollider(dt_loadable.collision_node_reference, self.pusher)
 
         self.set_positions()
         self._ready = True

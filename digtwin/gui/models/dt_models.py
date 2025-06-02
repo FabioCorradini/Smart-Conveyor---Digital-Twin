@@ -13,6 +13,7 @@ from digtwin.gui.nodes.dt_nodes import DTNode
 _logger = logging.getLogger(__name__)
 
 class DTModel(DTLoadable):
+    collision_node_reference: None | NodePath
     model_path: str | None
     parent: str | None
 
@@ -48,6 +49,7 @@ class DTModel(DTLoadable):
         self.clickable = clickable
         self.solid = solid
         self.detectable = detectable
+        self.collision_node_reference = None
 
     @property
     def model_path(self) -> Filename:
@@ -155,6 +157,7 @@ class DTModel(DTLoadable):
                 c_node_np = self.node_path_reference.attach_new_node(c_node)
                 # c_node_np.show()
                 self.align_collision_solid(c_node_np)
+                self.collision_node_reference = c_node_np
                 if self.clickable:
                     c_node_np.setTag("clickable", "1")
         else:
