@@ -10,7 +10,7 @@ class DTNode(DTLoadable):
 
     def __init__(self,
                  name: str,
-                 parent: str | None = None,
+                 parent: str | None | DTLoadable = None,
                  theta_period: np.ndarray | None = None,
                  delta_theta: np.ndarray | None = None,
                  n_var: int = 1

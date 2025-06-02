@@ -233,6 +233,24 @@ class P3dGui(p3dw.Panda3DWorld):
 
 
     def debug_routine(self):
+
+        def get_alpha_delta(in_theta: float) -> tuple[float, float]:
+            A = np.array([[+34.3], [-58.1]])
+            B = np.array([[+197.2], [+59.0]])
+            V = (B - A).flatten()
+            psi = np.atan2(V[0], V[1])
+            phi = np.arctan2(A[0], A[1])
+
+            c, s = np.cos(in_theta), np.sin(in_theta)
+            R = np.array(((c, -s), (s, c)))
+            A_1 = np.matmul(R, A).flatten()
+            V_1 = B.flatten() - A_1
+            psi_1 = np.atan2(V_1[0], V_1[1])
+            phi_1 = np.arctan2(A_1[0], A_1[1])
+
+            return psi_1 - psi, - phi - psi + phi_1 + psi_1
+
+
         theta = 0
         fps = 30
         increment = 2*np.pi/fps
@@ -252,6 +270,8 @@ class P3dGui(p3dw.Panda3DWorld):
         gate_direction = True
         gate_angle = np.pi/4
         old_theta_gate = 0
+        alpha = 0
+        delta = 0
 
         while not self.exiting:
             theta += increment
@@ -266,10 +286,21 @@ class P3dGui(p3dw.Panda3DWorld):
 
                     if gate_direction:
                         node.set_theta((-theta_gate,))
+                        alpha, delta = get_alpha_delta(-theta_gate)
                     else:
                         node.set_theta((-gate_angle+theta_gate,))
+                        alpha, delta = get_alpha_delta(-gate_angle+theta_gate)
+
                     node.to_position()
                     old_theta_gate = theta_gate
+
+                if node.name == "piston_ext_node":
+                    node.set_theta((alpha,))
+                    node.to_position()
+
+                if node.name == "piston_in_node":
+                    node.set_theta((delta,))
+                    node.to_position()
 
             if time.time() - start_time > 1.0:
 

@@ -431,4 +431,64 @@ prox2.add_state(
 prox2.save(constants.SENSORS_DIR)
 
 
+piston_axis = DTModel(
+    "piston_axis",
+    r"./Data/obj/piston_axis_scaled.stl",
+    color=(decode_sRGB_float(0x4b), decode_sRGB_float(0x73), decode_sRGB_float(0x9f), 1.0)
+)
+
+piston_axis.save(constants.MODELS_DIR)
+
+piston_ext_node = DTNode("piston_ext_node")
+
+piston_ext_node.add_node_state(
+    "state1",
+    const_shift_matrix=np.array([[0.0],[-313.3],[309.5]]),
+    const_rotation_axis_matrix=np.array([[1],[0],[0]]),
+    var_rotation_angle_matrix=np.array([[1]]),
+)
+
+piston_ext_node.save(constants.NODES_DIR)
+
+Pd = np.array([0, -313.3, 309.5])
+Pe = np.array([0, -150.4, 192.4])
+Pv = Pd - Pe
+s_rot = np.atan2(-Pv[1],Pv[2])
+
+
+piston_ext_model = DTModel(
+    name="piston_ext",
+    parent=piston_ext_node,
+    model_path=r"./Data/obj/piston_ext_scaled.stl",
+    rotation_axis=np.array([1.0, 0.0, 0.0]),
+    rotation_angle= np.array([s_rot])
+)
+
+piston_ext_model.save(constants.MODELS_DIR)
+
+
+piston_in_node = DTNode(
+    "piston_in_node",
+    parent=gate_main_node
+)
+
+
+piston_in_node.add_node_state(
+    "state1",
+    const_shift_matrix=np.array([  [0.] , [-34.3], [-58.1]]),
+    const_rotation_axis_matrix=np.array([[1],[0],[0]]),
+    var_rotation_angle_matrix=np.array([[1]])
+)
+
+piston_in_node.save(constants.NODES_DIR)
+
+
+piston_in_model = DTModel(
+    name="piston_in_model",
+    parent=piston_in_node,
+    model_path=r"./Data/obj/piston_int_scaled.stl"
+)
+
+piston_in_model.save(constants.MODELS_DIR)
+
 
