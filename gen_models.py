@@ -16,7 +16,7 @@ main_conveyor = DTModel(
     "main_frame",
     r"./Data/obj/fixed_conveyor_scaled.stl",
     collision_center=np.array([0.0, 332.0, 548.0]),
-    collision_sides = (100.0, 480.0, 30.0),
+    collision_sides = (100.0, 460.0, 30.0),
     collision_rotation_axis = np.array([1.0, 0.0, 0.0]),
     collision_rotation_angle= np.pi/4,
     solid=True
@@ -127,7 +127,7 @@ palette= DTModel(
     rotation_axis = np.array([1,0,0]),
     rotation_angle = np.array([alpha]),
     collision_center=np.array([0.0, 0.0, 22.0]),
-    collision_sides=(70.0, 3.0, 22.0),
+    collision_sides=(70.0, 3.0, 26.0),
     collision_rotation_axis=np.array([0.0, 0.0, 0.0]),
     collision_rotation_angle=0,
     solid=True

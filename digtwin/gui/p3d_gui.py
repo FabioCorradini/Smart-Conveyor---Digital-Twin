@@ -17,6 +17,12 @@ from digtwin.utils import constants
 from direct.stdpy.threading import Thread
 from digtwin.gui.qt.action_window import DTActionWindow
 import time
+# from panda3d.core import loadPrcFileData
+# #
+# loadPrcFileData('', 'clock-mode limited')
+# loadPrcFileData('', 'clock-frame-rate 60')
+# loadPrcFileData('', 'show-frame-rate-meter 1')
+
 
 _logger = logging.getLogger(__name__)
 
