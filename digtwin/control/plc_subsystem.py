@@ -195,9 +195,9 @@ class PLCSubsystem:
 
     def _internal_var_to_topic(self, internal_var: InternalVar, writable: bool):
         if writable:
-            return f"{self.name}/{internal_var.target_device}/to_dt/{internal_var.name}"
+            return f"{self.name}/{internal_var.target_device}/to_gui"
         else:
-            return f"{self.name}/{internal_var.target_device}/to_plc/{internal_var.name}"
+            return f"{self.name}/{internal_var.target_device}/to_dt"
 
 
     def order_var_by_type(self, var_type: ModRegType) -> list[ModVar]:

@@ -169,11 +169,12 @@ class DTStatefulModel(DTLoadable):
     states: list['DTModelState']
     _old_reference: NodePath | None
 
-    def __init__(self, name: str, parent: Union[str, None, 'DTLoadable'] = None):
+    def __init__(self, name: str,source_dev: str, parent: Union[str, None, 'DTLoadable'] = None):
         super().__init__(name, parent)
         self.states = []
         self._current_state_id = 0
         self._old_reference = None
+        self.source_dev = source_dev
 
     def __len__(self) -> int:
         return len(self.states)
@@ -280,12 +281,14 @@ class DTStatefulModel(DTLoadable):
         data_dict = super().to_dict()
         states_list = [state.to_dict() for state in self.states]
         data_dict["states"] = states_list
+        data_dict["source_dev"] = self.source_dev
         return data_dict
 
     @staticmethod
     def from_dict(data_dict: dict) -> 'DTStatefulModel':
         obj = DTStatefulModel(
             data_dict["name"],
+            data_dict["source_dev"],
             data_dict["parent"]
         )
 

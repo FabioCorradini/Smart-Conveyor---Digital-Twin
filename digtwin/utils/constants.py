@@ -26,3 +26,6 @@ SENSORS_DIR = DATA_DIR / "sensors"
 
 if not SENSORS_DIR.is_dir():
     SENSORS_DIR.mkdir()
+
+DIGITAL_TWIN_MQTT_ADDRESS = "localhost"
+DIGITAL_TWIN_MQTT_PORT = 1883

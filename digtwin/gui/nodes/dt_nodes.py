@@ -10,6 +10,7 @@ class DTNode(DTLoadable):
 
     def __init__(self,
                  name: str,
+                 source_dev: str,
                  parent: str | None | DTLoadable = None,
                  theta_period: np.ndarray | None = None,
                  delta_theta: np.ndarray | None = None,
@@ -26,6 +27,7 @@ class DTNode(DTLoadable):
         self._last_theta = None
         self.fixed = True
         self.delta_theta = delta_theta if delta_theta is not None else np.zeros((1, n_var))
+        self.source_dev = source_dev
 
 
     def set_theta(self, theta: tuple[float]):
@@ -91,11 +93,13 @@ class DTNode(DTLoadable):
         data_dict["theta_period"] = self.theta_period.tolist() if self.theta_period is not None else None
         data_dict["n_var"] = self._n_var
         data_dict["delta_theta"] = self.delta_theta.tolist()
+        data_dict["source_dev"] = self.source_dev
         return data_dict
 
     @staticmethod
     def from_dict(data_dict: dict) -> 'DTNode':
         node = DTNode(data_dict["name"],
+                      data_dict["source_dev"],
                       data_dict["parent"],
                       np.array(data_dict["theta_period"]) if data_dict["theta_period"] is not None else None,
                       np.array(data_dict["delta_theta"]),

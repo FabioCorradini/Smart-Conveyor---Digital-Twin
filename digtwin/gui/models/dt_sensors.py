@@ -29,8 +29,8 @@ class SensorTrigger(DirectObject.DirectObject):
 
 
 class DTSensor(DTStatefulModel):
-    def __init__(self, name: str, parent: Union[str, None, 'DTLoadable'] = None):
-        super().__init__(name, parent)
+    def __init__(self, name: str, source_dev: str, parent: Union[str, None, 'DTLoadable'] = None):
+        super().__init__(name, source_dev, parent)
         self._sensor_trigger_handler = SensorTrigger(self)
 
     def add_state(self,
@@ -70,6 +70,7 @@ class DTSensor(DTStatefulModel):
     def from_dict(data_dict: dict) -> 'DTSensor':
         obj = DTSensor(
             data_dict["name"],
+            data_dict["source_dev"],
             data_dict["parent"]
         )
 
