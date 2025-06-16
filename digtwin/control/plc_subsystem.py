@@ -30,12 +30,14 @@ class ModVar:
     address: int
     default_value: int | float
     reg_type: ModRegType
+    changed: bool = False
 
 @dataclass
 class InternalVar:
     name: str
     target_device: str
     value: list[float | int | bool]
+    changed: bool = False
 
 
 
@@ -111,18 +113,23 @@ class PLCSubsystem:
         _logger.info("Initializing mqtt")
         self._mqtt_client.connect(self.mqtt_address, self.mqtt_port)
         self._mqtt_client.loop_start()
-        for var_name, internal_var in self._internal_input_vars.items():
+        for target_device, internal_var in self._internal_input_vars.items():
             self._mqtt_client.subscribe(self._internal_var_to_topic(internal_var, False))
         self._mqtt_client.on_message = self._on_mqtt_message
 
-        for var_name, internal_var in self._internal_output_vars.items():
+        for target_device, internal_var in self._internal_output_vars.items():
             self._mqtt_client.publish(self._internal_var_to_topic(internal_var, True), json.dumps(internal_var.value))
         _logger.info("Mqtt started.")
 
     def _on_mqtt_message(self, client, userdata, message):
-        var_name = message.topic.split("/")[-1]
-        internal_var = self._internal_input_vars[var_name]
-        internal_var.value = json.loads(message.payload.decode("utf-8"))
+        device_name, target_name, direction = message.topic.split("/")
+        try:
+            internal_var = self._internal_input_vars[target_name]
+            internal_var.value = json.loads(message.payload.decode("utf-8"))
+        except KeyError as e:
+            _logger.error(f"Key {target_name} not found (received topic {message.topic}).")
+        except json.decoder.JSONDecodeError as e:
+            _logger.error(f"JSON decoding error (received topic {message.topic}). Message: {message.payload.decode('utf8')}")
 
     def main_plc_task(self):
         raise NotImplementedError()
@@ -179,8 +186,8 @@ class PLCSubsystem:
             self._external_input_vars[var_name] = new_var
 
     def _register_internal_variable(self, var_name: str, writable: bool, default_value: list[float | int | bool],  target_device: str):
-        if var_name in self._internal_input_vars or var_name in self._internal_output_vars:
-            raise ValueError(f"Variable {var_name} already exists")
+        if target_device in self._internal_input_vars or target_device in self._internal_output_vars:
+            raise ValueError(f"Target device {target_device} already exists")
 
         internal_var = InternalVar(
             name = var_name,
@@ -189,15 +196,36 @@ class PLCSubsystem:
         )
 
         if writable:
-            self._internal_output_vars[var_name] = internal_var
+            self._internal_output_vars[target_device] = internal_var
         else:
-            self._internal_input_vars[var_name] = internal_var
+            self._internal_input_vars[target_device] = internal_var
 
     def _internal_var_to_topic(self, internal_var: InternalVar, writable: bool):
         if writable:
             return f"{self.name}/{internal_var.target_device}/to_gui"
         else:
             return f"{self.name}/{internal_var.target_device}/to_dt"
+
+    def _variable_changed(self, var_name: str, internal=True) -> bool:
+        if internal:
+            if var_name in self._internal_input_vars:
+                var_obj = self._internal_input_vars[var_name]
+            else:
+                var_obj = self._internal_output_vars[var_name]
+            is_changed = var_obj.changed
+            var_obj.changed = False
+            return is_changed
+        else:
+            if var_name in self._external_output_vars:
+                var_obj = self._external_output_vars[var_name]
+            else:
+                var_obj = self._external_input_vars[var_name]
+            is_changed = var_obj.changed
+            var_obj.changed = False
+            return is_changed
+
+
+
 
 
     def order_var_by_type(self, var_type: ModRegType) -> list[ModVar]:
@@ -243,24 +271,27 @@ class PLCSubsystem:
             _logger.error(f"{mod_var.reg_type} for variable {var_name} is not a valid output type")
             raise KeyError(var_name)
 
-    def _read_internal_variable(self, var_name: str) -> list[int | bool | float]:
-        if var_name in self._internal_output_vars:
-            int_var = self._internal_output_vars[var_name]
+        mod_var.changed = True
+
+    def _read_internal_variable(self, target_device: str) -> list[int | bool | float]:
+        if target_device in self._internal_output_vars:
+            int_var = self._internal_output_vars[target_device]
             return int_var.value
-        elif var_name in self._internal_input_vars:
-            int_var = self._internal_input_vars[var_name]
+        elif target_device in self._internal_input_vars:
+            int_var = self._internal_input_vars[target_device]
             return int_var.value
         else:
-            raise KeyError(var_name)
+            raise KeyError(target_device)
 
-    def _write_internal_variable(self, var_name: str, value: list[int | bool | float]):
-        if var_name in self._internal_output_vars:
-            int_var = self._internal_output_vars[var_name]
+    def _write_internal_variable(self, target_device: str, value: list[int | bool | float]):
+        if target_device in self._internal_output_vars:
+            int_var = self._internal_output_vars[target_device]
             if value != int_var.value:
                 int_var.value = value
                 self._mqtt_client.publish(self._internal_var_to_topic(int_var, True), json.dumps(value))
+            int_var.changed = True
         else:
-            raise KeyError(var_name)
+            raise KeyError(target_device)
 
 
     @classmethod
