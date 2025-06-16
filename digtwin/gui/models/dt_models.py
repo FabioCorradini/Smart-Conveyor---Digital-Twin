@@ -181,6 +181,9 @@ class DTStatefulModel(DTLoadable):
     def __len__(self) -> int:
         return len(self.states)
 
+    def is_input(self)-> bool:
+        return all([s.collision_center is None for s in self.states])
+
     @property
     def state_id(self) -> int:
         return self._current_state_id

@@ -33,6 +33,9 @@ class DTSensor(DTStatefulModel):
         super().__init__(name, source_dev, parent)
         self._sensor_trigger_handler = SensorTrigger(self)
 
+    def is_input(self) -> bool:
+        return False  # sensor is always output
+
     def add_state(self,
                   model_path=None,
                   color=None,

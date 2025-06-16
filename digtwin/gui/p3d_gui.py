@@ -252,12 +252,13 @@ class P3dGui(p3dw.Panda3DWorld):
 
 
     def start_communication(self):
+        # every node is input
         for node in self.nodes_list:
             self._com_proc.add_target_model(node)
 
         for stateful_model in self.stateful_model_list:
             self._com_proc.add_target_model(stateful_model)
-            if isinstance(stateful_model, DTSensor):
+            if not stateful_model.is_input():
                 self._sensors_thread_list.append(Thread(name=f"{stateful_model.name}_write_thread", target= self.communication_write_routine, args=(stateful_model,)))
 
         self._com_proc.start()
