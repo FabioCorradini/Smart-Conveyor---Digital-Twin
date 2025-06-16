@@ -6,6 +6,12 @@ from digtwin.utils import constants
 import numpy as np
 from panda3d.core import decode_sRGB_float, LQuaternion, LVector3f
 
+# PLC subsystems
+
+sc_panel = "smart_conveyor_panel"
+sc_motor = "smart_conveyor_motor"
+sc_cylinder = "smart_conveyor_cylinder"
+
 # models
 
 white_color = (0.8, 0.8, 0.8, 1)
@@ -83,7 +89,7 @@ rot0 = rot4 + np.pi
 
 p_diff = pb - pa
 
-conveyor_main_node = DTNode("conveyor_node", theta_period=np.array([[rot0]]))
+conveyor_main_node = DTNode("conveyor_node", sc_motor ,theta_period=np.array([[rot0]]))
 
 conveyor_main_node.add_node_state(
     state_name="p12",
@@ -143,7 +149,7 @@ for i in range(9):
     pal.save(constants.MODELS_DIR)
 
 
-gate_main_node = DTNode("gate_node")
+gate_main_node = DTNode("gate_node", sc_cylinder)
 
 gate_main_node.add_node_state(
     state_name="state1",
@@ -183,7 +189,7 @@ pe = np.array([[-87.0], [500.0], [795.0]])
 
 enc_r = 27.0
 
-encoder_main_node = DTNode("encoder_node")
+encoder_main_node = DTNode("encoder_node", sc_motor)
 
 encoder_main_node.add_node_state(
     "state1",
@@ -215,8 +221,7 @@ panel_box.color = orange_color
 panel_box.save(constants.MODELS_DIR)
 
 
-mushroom = DTStatefulModel(
-    "mushroom" )
+mushroom = DTStatefulModel("mushroom", sc_panel)
 
 mushroom.add_state(
     model_path=r"./Data/obj/mushroom_OFF_scaled.stl",
@@ -234,9 +239,7 @@ mushroom.add_state(
 
 mushroom.save(constants.STATE_MODELS_DIR)
 
-festo_switch = DTStatefulModel(
-    "festo_switch",
-)
+festo_switch = DTStatefulModel("festo_switch", sc_panel)
 
 festo_switch.add_state(
     model_path=r"./Data/obj/switch_festo_scaled.stl",
@@ -258,9 +261,7 @@ festo_switch.add_state(
 
 festo_switch.save(constants.STATE_MODELS_DIR)
 
-pushbutton_red = DTStatefulModel(
-    "pushbutton_red"
-)
+pushbutton_red = DTStatefulModel("pushbutton_red", sc_panel)
 
 pushbutton_red.add_state(
     model_path=r"./Data/obj/pushbutton_OFF_scaled.stl",
@@ -278,9 +279,7 @@ pushbutton_red.add_state(
 
 pushbutton_red.save(constants.STATE_MODELS_DIR)
 
-pushbutton_green = DTStatefulModel(
-    "pushbutton_green"
-)
+pushbutton_green = DTStatefulModel("pushbutton_green", sc_panel)
 
 pushbutton_green.add_state(
     model_path=r"./Data/obj/pushbutton_OFF_scaled.stl",
@@ -300,9 +299,7 @@ pushbutton_green.add_state(
 
 pushbutton_green.save(constants.STATE_MODELS_DIR)
 
-light_panel_red = DTStatefulModel(
-    "lightpanel_red"
-)
+light_panel_red = DTStatefulModel("lightpanel_red", sc_panel)
 
 light_panel_red.add_state(
     model_path=r"./Data/obj/panel_light_scaled.stl",
@@ -316,9 +313,7 @@ light_panel_red.add_state(
 
 light_panel_red.save(constants.STATE_MODELS_DIR)
 
-light_panel_green = DTStatefulModel(
-    "lightpanel_green"
-)
+light_panel_green = DTStatefulModel("lightpanel_green", sc_panel)
 
 light_panel_green.add_state(
     model_path=r"./Data/obj/panel_light_scaled.stl",
@@ -361,9 +356,7 @@ prox_support = DTModel(
 
 prox_support.save(constants.MODELS_DIR)
 
-prox1 = DTSensor(
-    "prox1"
-)
+prox1 = DTSensor("prox1", sc_motor)
 
 prox1.add_state(
     model_path=r"./Data/obj/prox_switch.stl",
@@ -405,9 +398,7 @@ prox2_q = prox2_q2 * prox2_q1
 prox2_q.normalize()
 
 
-prox2 = DTSensor(
-    "prox2"
-)
+prox2 = DTSensor( "prox2", sc_motor)
 
 prox2.add_state(
     model_path=r"./Data/obj/prox_switch.stl",
@@ -439,7 +430,7 @@ piston_axis = DTModel(
 
 piston_axis.save(constants.MODELS_DIR)
 
-piston_ext_node = DTNode("piston_ext_node")
+piston_ext_node = DTNode("piston_ext_node", sc_cylinder)
 
 piston_ext_node.add_node_state(
     "state1",
@@ -469,6 +460,7 @@ piston_ext_model.save(constants.MODELS_DIR)
 
 piston_in_node = DTNode(
     "piston_in_node",
+    sc_cylinder,
     parent=gate_main_node
 )
 
@@ -509,6 +501,7 @@ plunger_box.save(constants.MODELS_DIR)
 
 piston_sens1 = DTSensor(
     name = "piston_sens1",
+    source_dev=sc_cylinder,
     parent=piston_ext_model
 )
 
@@ -532,6 +525,7 @@ piston_sens1.save(constants.SENSORS_DIR)
 
 piston_sens2 = DTSensor(
     name = "piston_sens2",
+    source_dev=sc_cylinder,
     parent=piston_ext_model
 )
 

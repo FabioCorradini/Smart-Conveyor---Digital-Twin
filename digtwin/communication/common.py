@@ -5,7 +5,7 @@ from collections.abc import Callable
 import logging
 from digtwin.gui.nodes.dt_nodes import DTNode
 from digtwin.gui.models.dt_models import DTStatefulModel
-from threading import Thread
+import signal
 
 _logger = logging.getLogger(__name__)
 
@@ -128,6 +128,8 @@ class GUISideCommunicationProcess(Process):
 
     def run(self):
         logging.basicConfig(level=logging.INFO)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
         while not self._closing:
             try:
                 msg = self.gui_to_dt.get(True, 1.0)

@@ -7,6 +7,7 @@ from panda3d.core import (Filename, NodePath, Loader, CollisionNode, CollisionSp
 import logging
 from digtwin.gui.dt_loadable import DTLoadable
 import numpy as np
+from direct.stdpy.threading import Event
 
 from digtwin.gui.nodes.dt_nodes import DTNode
 
@@ -175,6 +176,7 @@ class DTStatefulModel(DTLoadable):
         self._current_state_id = 0
         self._old_reference = None
         self.source_dev = source_dev
+        self.changed_event = Event()
 
     def __len__(self) -> int:
         return len(self.states)
@@ -195,6 +197,7 @@ class DTStatefulModel(DTLoadable):
         self.to_color()
         self.to_position()
         if self._old_reference != self.node_path_reference:
+            self.changed_event.set()
             if self._old_reference is not None and not self._old_reference.is_stashed():
                 self._old_reference.stash()
             if self.node_path_reference.is_stashed():

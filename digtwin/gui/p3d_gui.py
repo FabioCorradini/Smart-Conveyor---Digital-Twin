@@ -17,6 +17,9 @@ from digtwin.utils import constants
 from direct.stdpy.threading import Thread
 from digtwin.gui.qt.action_window import DTActionWindow
 import time
+from digtwin.communication.common import GUISideCommunicationProcess, ThetaMessage, DtComQueue, DtComCmd
+from digtwin.communication.mqtt import MqttGUIComProc
+import queue
 # from panda3d.core import loadPrcFileData
 # #
 # loadPrcFileData('', 'clock-mode limited')
@@ -232,10 +235,39 @@ class P3dGui(p3dw.Panda3DWorld):
 
         # debug tools
 
-        self._debug_routine = Thread(target=self.debug_routine)
-        self._debug_routine.start()
-
+        # self._debug_routine = Thread(target=self.debug_routine)
         # self.messenger.toggle_verbose()
+
+        # communication tools
+        self._cmd_queue = DtComCmd()
+        self._gui_to_dt = DtComQueue()
+        self._dt_to_gui = DtComQueue()
+
+        self._com_proc = MqttGUIComProc(self._gui_to_dt, self._dt_to_gui, self._cmd_queue,
+                                        mqtt_address=constants.DIGITAL_TWIN_MQTT_ADDRESS,
+                                        mqtt_port=constants.DIGITAL_TWIN_MQTT_PORT)
+
+        self._communication_routine = Thread(target=self.communication_read_routine)
+        self._sensors_thread_list: list[Thread] = []
+
+
+    def start_communication(self):
+        for node in self.nodes_list:
+            self._com_proc.add_target_model(node)
+
+        for stateful_model in self.stateful_model_list:
+            self._com_proc.add_target_model(stateful_model)
+            if isinstance(stateful_model, DTSensor):
+                self._sensors_thread_list.append(Thread(name=f"{stateful_model.name}_write_thread", target= self.communication_write_routine, args=(stateful_model,)))
+
+        self._com_proc.start()
+        self._cmd_queue.send_connect_cmd()
+
+        self._communication_routine.start()
+
+        for th in self._sensors_thread_list:
+            th.start()
+
 
 
     def debug_routine(self):
@@ -329,6 +361,38 @@ class P3dGui(p3dw.Panda3DWorld):
             time.sleep(1/fps)
 
         _logger.info("Closing debug routine")
+
+    def communication_read_routine(self):
+        while not self.exiting:
+            try:
+                in_msg = self._dt_to_gui.get(True, 2.0)
+                _logger.warning(f"Received message: {in_msg}")
+                if in_msg.target_name in self.loadable_dict:
+                    loadable = self.loadable_dict[in_msg.target_name]
+                    if isinstance(loadable, DTNode):
+                        loadable.set_theta(in_msg.values)
+                        loadable.to_position()
+                    elif isinstance(loadable, DTStatefulModel):
+                        loadable.state_id = in_msg.values[0]
+                        loadable.to_state()
+                    else:
+                        _logger.error(f"Cannot pass values to loadable {loadable.name} or type {type(loadable)}")
+                else:
+                    _logger.error(f"Unknown loadable {in_msg.target_name}")
+            except queue.Empty:
+                pass
+
+    def communication_write_routine(self, dt_sensor: DTSensor):
+        _logger.info(f"Started reading routine for {dt_sensor.name}")
+        while not self.exiting:
+            dt_sensor.changed_event.wait(2.0)
+            if not self.exiting and dt_sensor.changed_event.is_set():
+                _logger.info(f"sensor {dt_sensor.name} changed")
+                self._gui_to_dt.put_message(dt_sensor.name, [dt_sensor.state_id])
+                dt_sensor.changed_event.clear()
+
+        _logger.info(f"Stopping reading routine for {dt_sensor.name}")
+
 
     def get_clicked_obj_name(self, pos_x: float, pos_y: float) -> DTLoadable | None:
         self.picker_ray.setFromLens(self.camNode, pos_x, pos_y)
@@ -540,8 +604,16 @@ class P3dGui(p3dw.Panda3DWorld):
         _logger.info("Closing GUI")
         super().userExit()
 
-    def exit_program(self):
+    def exit_program(self, signum=0, frame=None):
         """Tells to the diagnosis process that user requested the closure of the application """
+        _logger.warning(f"Closing GUI with signal {signum}")
         self.exiting = True
-        _logger.info("Waiting for debug routine")
-        self._debug_routine.join()
+        if self._communication_routine.is_alive():
+            _logger.info("Waiting for debug routine")
+            self._communication_routine.join()
+        self._cmd_queue.send_close_cmd() # for closing communication proc
+        self._com_proc.join()
+        self._com_proc.close()
+        for th in self._sensors_thread_list:
+            th.join()
+

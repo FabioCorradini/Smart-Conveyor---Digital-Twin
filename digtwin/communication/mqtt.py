@@ -44,7 +44,6 @@ class MqttGUIComProc(GUISideCommunicationProcess):
             self.dt_to_gui.put_message(model_name, json.loads(message.payload.decode("utf-8")))
 
     def send_to_dt(self, msg: ThetaMessage):
-        _logger.info(f"Sending {msg.values} to {msg.target_name}")
         self._mqtt_client.publish(f"{self._target_models[msg.target_name]}/{msg.target_name}/to_dt", json.dumps(msg.values))
 
     def is_connected(self) -> bool:
@@ -89,8 +88,6 @@ if __name__ == '__main__':
     cmd_queue.send_close_cmd()
     print("Closing")
     time.sleep(2.0)
-
-
 
 
     com_proc.join()

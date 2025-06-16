@@ -3,6 +3,7 @@ from digtwin.gui.p3d_gui import P3dGui
 from digtwin.gui.qt_gui import QtGui
 from PyQt5.QtWidgets import QApplication
 from pathlib import Path
+import signal
 import sys
 
 _logger = logging.getLogger(__name__)
@@ -16,6 +17,10 @@ def main():
 
     gui = P3dGui()
     gui.load_objects()
+    gui.start_communication()
+
+    signal.signal(signal.SIGINT, gui.exit_program)
+    signal.signal(signal.SIGTERM, gui.exit_program)
 
     _logger.info("UI init...")
     interface_app = QApplication(sys.argv)
@@ -27,10 +32,9 @@ def main():
     except Exception as e:  # qt does not raise exception automatically
         _logger.error(e)
         ret = -1
-
-
-    _logger.warning("Closing main...")
-    gui.exiting = True
+    finally:
+        _logger.warning("Closing main...")
+        gui.exit_program()
 
     sys.exit(ret)
 

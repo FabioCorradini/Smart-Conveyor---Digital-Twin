@@ -30,7 +30,7 @@ class DTNode(DTLoadable):
         self.source_dev = source_dev
 
 
-    def set_theta(self, theta: tuple[float]):
+    def set_theta(self, theta: tuple[float] | list[float]) -> None:
         assert len(theta) == self._n_var
 
         if self.theta_period is not None:
