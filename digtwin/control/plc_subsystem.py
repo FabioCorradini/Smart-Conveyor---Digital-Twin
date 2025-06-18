@@ -89,10 +89,16 @@ class PLCSubsystem:
 
     async def init(self):
         _logger.info("Initializing Modbus...")
-        self._discrete_input_memory = ModbusSequentialDataBlock(self.DISCRETE_INPUT_START, [var.default_value for var in self.order_var_by_type(ModRegType.DISCRETE_INPUT)])
-        self._coils_memory = ModbusSequentialDataBlock(self.COILS_START, [var.default_value for var in self.order_var_by_type(ModRegType.COILS)])
-        self._holding_register_memory = ModbusSequentialDataBlock(self.HOLDING_REGISTER_START, [var.default_value for var in self.order_var_by_type(ModRegType.HOLDING_REGISTER)])
-        self._input_registers_memory = ModbusSequentialDataBlock(self.INPUT_REGISTER_START, [var.default_value for var in self.order_var_by_type(ModRegType.INPUT_REGISTER)])
+        di_var = [var.default_value for var in self.order_var_by_type(ModRegType.DISCRETE_INPUT)]
+        co_var = [var.default_value for var in self.order_var_by_type(ModRegType.COILS)]
+        hr_var = [var.default_value for var in self.order_var_by_type(ModRegType.HOLDING_REGISTER)]
+        ir_var = [var.default_value for var in self.order_var_by_type(ModRegType.INPUT_REGISTER)]
+
+
+        self._discrete_input_memory = ModbusSequentialDataBlock(self.DISCRETE_INPUT_START, di_var if di_var else [False])
+        self._coils_memory = ModbusSequentialDataBlock(self.COILS_START, co_var if co_var else [False])
+        self._holding_register_memory = ModbusSequentialDataBlock(self.HOLDING_REGISTER_START, hr_var if hr_var else [0])
+        self._input_registers_memory = ModbusSequentialDataBlock(self.INPUT_REGISTER_START, ir_var if ir_var else [0])
         slave_context = ModbusSlaveContext(
             di=self._discrete_input_memory,
             co=self._coils_memory,
