@@ -13,7 +13,12 @@ class CrankDrive:
 
     def __init__(self):
         #settings
-        self.max_gate_angle = np.pi/4
+        self._default_max_angle = np.pi/4
+        self._stuck_angle = self._default_max_angle/2
+
+        self.max_gate_angle = self._default_max_angle
+        self.min_gate_angle = 0.0
+
         # cinematic
         self.a = np.array([[+34.3], [-58.1]]) # crank, rod joint
         self.b = np.array([[+197.2], [+59.0]]) # piston, frame joint
@@ -65,6 +70,16 @@ class CrankDrive:
     def theta(self):
         return self._current_pos
 
+    def set_stuck_state(self, activate: bool):
+        if activate:
+            if self._current_pos > self._stuck_angle:
+                self.min_gate_angle = self._stuck_angle
+            else:
+                self.max_gate_angle = self._stuck_angle
+        else:
+            self.min_gate_angle = 0.0
+            self.max_gate_angle = self._default_max_angle
+
 
     def run(self, current_time: float):
 
@@ -74,7 +89,7 @@ class CrankDrive:
 
         if self._movement_enabled:
             if self.moving_forward:
-                if self._current_pos < self.max_gate_angle - self._dec_area:
+                if self._current_pos < self._default_max_angle - self._dec_area:
                     # not in deceleration area
                     self._current_acc = self._a_acc - self._current_speed * self.attr_k
                 else:
@@ -85,9 +100,9 @@ class CrankDrive:
                 else:
                     self._current_acc = -self._a_acc - self._current_speed * self.attr_k2
 
-            if self._current_pos <= 0.0 and not self.moving_forward:
+            if self._current_pos <= self.min_gate_angle and not self.moving_forward:
                 self._current_speed = 0.0
-                self._current_pos = 0.0
+                self._current_pos = self.min_gate_angle
             elif self._current_pos >= self.max_gate_angle and self.moving_forward:
                 self._current_speed = 0.0
                 self._current_pos = self.max_gate_angle

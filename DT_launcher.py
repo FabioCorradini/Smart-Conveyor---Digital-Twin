@@ -1,5 +1,6 @@
 from digtwin.control.plc_subsystem import PLCSubsystem, ModVarType
 from digtwin.physics.motor import Motor
+from digtwin.physics.crank_drive import CrankDrive
 import numpy as np
 import time
 import asyncio
@@ -276,10 +277,6 @@ class SmartConveyorMotor(PLCSubsystem):
 
         # timer refs
 
-        self._g_button_timer = time.time()
-        self._light_blink_timer = time.time()
-        self._light_blink_timeout = 0
-        self._gate_timer = time.time()
         self._motor_speed_mes_timer = time.time()
         self._stuck_timer = 0
 
@@ -478,31 +475,263 @@ class SmartConveyorMotor(PLCSubsystem):
     def ext_motor_stuck(self, value: bool):
         self._write_external_variable("motor_stuck", value)
 
+class SmartConveyorCylinder(PLCSubsystem):
+    def __init__(self):
+        super(SmartConveyorCylinder, self).__init__("smart_conveyor_cylinder", modbus_port=5022)
+
+        # inputs
+
+        # cylinder
+        self._register_internal_variable("bck_switch", False, [False], "piston_sens2")
+        self._register_internal_variable("frw_switch", False, [False], "piston_sens1")
+        self._register_internal_variable("pressure", False, [400000], "pressure")
+        self._register_internal_variable("stuck_state", False, [False], "stuck_state")
+
+        # outputs
+
+        # motor
+
+        self._register_internal_variable("phys_piston_plunger", True, [0], "piston_in_node")
+        self._register_internal_variable("phys_piston_ext", True, [0], "piston_ext_node")
+        self._register_internal_variable("phys_gate", True, [0], "gate_node")
+
+        # externals
+
+        # inputs
+        self._register_external_variable("flap_cmd", ModVarType.BOOLEAN, False, False)
+        self._register_external_variable("reset_counters_cmd", ModVarType.BOOLEAN, False, False)
+        self._register_external_variable("reset_alarm_cmd", ModVarType.BOOLEAN, False, False)
+        self._register_external_variable("auto_mode", ModVarType.BOOLEAN, False, False)
+
+        #output
+        self._register_external_variable("movement_count", ModVarType.INT16, True, 0)
+        self._register_external_variable("pressure_alarm", ModVarType.BOOLEAN, True, False)
+        self._register_external_variable("leakage_alarm", ModVarType.BOOLEAN, True, False)
+        self._register_external_variable("cylinder_alarm_out", ModVarType.BOOLEAN, True, False)
+        self._register_external_variable("cylinder_stuck_alarm", ModVarType.BOOLEAN, True, False)
+
+        # memory
+
+        self.cylinder_moving_forward = False
+        self.cylinder_moving_backward = False
+
+        # triggers ref
+
+        self._old_frw_switch = self.int_frw_switch
+        self._old_bck_switch = self.int_bck_switch
+        self._old_cmd_port = False
+        self._old_stuck_state = False
+        self._old_pressure = self.int_pressure
+        self._old_pressure = self.int_pressure
+        self._old_reset_alarm_cmd = False
+        self._old_reset_counters_cmd = False
+
+        # timer refs
+
+        self._gate_timer = time.time()
+
+        # physics
+
+        self._crank_drive = CrankDrive()
+
+
+    def main_plc_task(self):
+        self._crank_drive.run(time.time())
+
+        #cylinder
+
+        self.ext_cylinder_alarm_out = self.ext_pressure_alarm or self.ext_cylinder_stuck_alarm or self.ext_leakage_alarm
+
+        self.int_valve_port = self.ext_flap_cmd and not self.ext_cylinder_alarm_out
+
+        if self._old_pressure != self.int_pressure:
+            self._crank_drive.pressure = self.int_pressure
+            _logger.info(f"New pressure: {self.int_pressure}")
+            if self.int_pressure < 2e5:
+                self.ext_pressure_alarm = True
+                _logger.info("Pressure too low!")
+            self._old_pressure = self.int_pressure
+
+        if self._old_cmd_port != self.int_valve_port:
+            if self.int_valve_port:
+                self.ext_movement_count += 1
+                self.cylinder_moving_forward = True
+            else:
+                self.cylinder_moving_backward = False
+
+            self._gate_timer = time.time()
+            self._old_cmd_port = self.int_valve_port
+
+        if self.cylinder_moving_forward and not self.ext_cylinder_stuck_alarm and time.time() - self._gate_timer > 5.0:
+            _logger.info("Cylinder stuck during forward movement")
+            self.ext_cylinder_stuck_alarm = True
+
+        if self.cylinder_moving_backward and not self.ext_cylinder_stuck_alarm and time.time() - self._gate_timer > 5.0:
+            _logger.info("Cylinder stuck during backward movement")
+            self.ext_cylinder_stuck_alarm = True
+
+        if self._old_frw_switch != self.int_frw_switch:
+            _logger.info(f"Frw switch to: {self.int_frw_switch}")
+            if self.int_frw_switch:
+                self.cylinder_moving_forward = False
+                self.cylinder_moving_backward = False
+            self._old_frw_switch = self.int_frw_switch
+
+        if self._old_bck_switch != self.int_bck_switch:
+            _logger.info(f"Bck switch to: {self.int_bck_switch}")
+            if self.int_bck_switch:
+                self.cylinder_moving_forward = False
+                self.cylinder_moving_backward = False
+            self._old_bck_switch = self.int_bck_switch
+
+        if self._old_stuck_state != self.int_stuck_state:
+            _logger.info(f"Stuck state to: {self.int_stuck_state}")
+            self._crank_drive.set_stuck_state(self.int_stuck_state)
+            self._old_stuck_state = self.int_stuck_state
+
+        if self._old_reset_alarm_cmd != self.ext_reset_alarm_cmd:
+            if self.ext_reset_alarm_cmd:
+                _logger.info("RESETTING ALARMS")
+                self.ext_cylinder_stuck_alarm = False
+                self.ext_pressure_alarm = False
+                self.cylinder_moving_forward = False
+                self.cylinder_moving_backward = False
+            self._old_reset_alarm_cmd = self.ext_reset_alarm_cmd
+
+        if self._old_reset_counters_cmd != self.ext_reset_counters_cmd:
+            if self.ext_reset_counters_cmd:
+                _logger.info("RESETTING COUNTERS")
+                self.ext_movement_count = 0
+            self._old_reset_counters_cmd = self.ext_reset_counters_cmd
+
+
+        self.send_cylinder_pos()
+
+
+        self.debug_print()
+
+
+    def debug_print(self):
+        pass
+
+    def send_cylinder_pos(self):
+        psi, alpha = self._crank_drive.get_d_psi_d_alpha(self._crank_drive.theta)
+        self._write_internal_variable("gate_node", [-self._crank_drive.theta])
+        self._write_internal_variable("piston_ext_node", [psi])
+        self._write_internal_variable("piston_in_node", [alpha])
+
+    @property
+    def int_bck_switch(self) -> bool:
+        return self._read_internal_variable("piston_sens2")[0]
+
+    @property
+    def int_frw_switch(self) -> bool:
+        return self._read_internal_variable("piston_sens1")[0]
+
+    @property
+    def int_pressure(self) -> float:
+        return self._read_internal_variable("pressure")[0]
+
+    @property
+    def int_stuck_state(self):
+        return self._read_internal_variable("stuck_state")[0]
+
+    @property
+    def int_valve_port(self) -> bool:
+        return self._crank_drive.moving_forward
+
+    @int_valve_port.setter
+    def int_valve_port(self, value: bool):
+        self._crank_drive.moving_forward = value
+
+    @property
+    def ext_flap_cmd(self):
+        return self._read_external_variable("flap_cmd")
+
+    @property
+    def ext_reset_counters_cmd(self):
+        return self._read_external_variable("reset_counters_cmd")
+
+    @property
+    def ext_auto_mode(self):
+        return self._read_external_variable("auto_mode")
+
+    @property
+    def ext_movement_count(self):
+        return self._read_external_variable("movement_count")
+    @ext_movement_count.setter
+    def ext_movement_count(self, value: int):
+        self._write_external_variable("movement_count", value)
+
+    @property
+    def ext_pressure_alarm(self):
+        return self._read_external_variable("pressure_alarm")
+    @ext_pressure_alarm.setter
+    def ext_pressure_alarm(self, value: bool):
+        self._write_external_variable("pressure_alarm", value)
+
+    @property
+    def ext_leakage_alarm(self):
+        return self._read_external_variable("leakage_alarm")
+    @ext_leakage_alarm.setter
+    def ext_leakage_alarm(self, value: bool):
+        self._write_external_variable("leakage_alarm", value)
+
+    @property
+    def ext_cylinder_stuck_alarm(self):
+        return self._read_external_variable("cylinder_stuck_alarm")
+    @ext_cylinder_stuck_alarm.setter
+    def ext_cylinder_stuck_alarm(self, value: bool):
+        self._write_external_variable("cylinder_stuck_alarm", value)
+
+    @property
+    def ext_cylinder_alarm_out(self):
+        return self._read_external_variable("cylinder_alarm_out")
+    @ext_cylinder_alarm_out.setter
+    def ext_cylinder_alarm_out(self, value: bool):
+        self._write_external_variable("cylinder_alarm_out", value)
+
+    @property
+    def ext_reset_alarm_cmd(self) -> bool:
+        return self._read_external_variable("reset_alarm_cmd")
+
+
 
 async def main():
     panel_plc = SmartConveyorPanel()
     motor_plc = SmartConveyorMotor()
+    cylinder_plc = SmartConveyorCylinder()
 
     def close(a, b):
         panel_plc.close(a,b)
         motor_plc.close(a,b)
+        cylinder_plc.close(a,b)
 
     await panel_plc.init()
     await motor_plc.init()
+    await cylinder_plc.init()
+
     plc_task = asyncio.create_task(panel_plc.run())
     motor_task = asyncio.create_task(motor_plc.run())
+    cylinder_task = asyncio.create_task(cylinder_plc.run())
+
     signal.signal(signal.SIGINT, close)
     signal.signal(signal.SIGTERM, close)
+
     print(panel_plc.print_registers())
     print(panel_plc.print_topics())
     print(motor_plc.print_registers())
     print(motor_plc.print_topics())
+    print(cylinder_plc.print_registers())
+    print(cylinder_plc.print_topics())
+
     try:
         while not plc_task.done() and not motor_task.done():
             await asyncio.sleep(1.0)
     finally:
         await plc_task
         await motor_task
+        await cylinder_task
 
 if __name__ == '__main__':
     asyncio.run(main())
