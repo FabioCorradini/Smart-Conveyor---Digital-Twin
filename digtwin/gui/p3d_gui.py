@@ -248,6 +248,7 @@ class P3dGui(p3dw.Panda3DWorld):
                                         mqtt_port=constants.DIGITAL_TWIN_MQTT_PORT)
 
         self._communication_routine = Thread(target=self.communication_read_routine)
+        self._watchdog_thread = Thread(target=self.watchdog_routine)
         self._sensors_thread_list: list[Thread] = []
 
 
@@ -266,10 +267,15 @@ class P3dGui(p3dw.Panda3DWorld):
 
         self._communication_routine.start()
 
+        self._watchdog_thread.start()
+
         for th in self._sensors_thread_list:
             th.start()
 
-
+    def watchdog_routine(self):
+        while not self.exiting:
+            self._com_proc.ping_watchdog()
+            time.sleep(1.0)
 
     def debug_routine(self):
 
@@ -612,6 +618,10 @@ class P3dGui(p3dw.Panda3DWorld):
         if self._communication_routine.is_alive():
             _logger.info("Waiting for debug routine")
             self._communication_routine.join()
+        if self._watchdog_thread.is_alive():
+            _logger.info("Waiting for watchdog thread")
+            self._watchdog_thread.join()
+
         self._cmd_queue.send_close_cmd() # for closing communication proc
         self._com_proc.join()
         self._com_proc.close()

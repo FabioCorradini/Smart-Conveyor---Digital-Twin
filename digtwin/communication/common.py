@@ -1,3 +1,4 @@
+import time
 from multiprocessing import SimpleQueue, Process, Queue
 from queue import Empty
 from dataclasses import dataclass
@@ -36,6 +37,7 @@ class DtComCmd:
     CLOSE_CMD = "X"
     CONNECT_CMD = "C"
     DISCONNECT_CMD = "D"
+    WATCHDOG_CMD = "W"
 
 
     def __init__(self):
@@ -45,6 +47,7 @@ class DtComCmd:
         self._close_callback = None
         self._connect_callback = None
         self._disconnect_callback = None
+        self._watchdog_callback = None
 
     def send_close_cmd(self):
         self._queue.put(self.CLOSE_CMD)
@@ -55,6 +58,9 @@ class DtComCmd:
     def send_disconnect_cmd(self):
         self._queue.put(self.DISCONNECT_CMD)
 
+    def send_watchdog_cmd(self):
+        self._queue.put(self.WATCHDOG_CMD)
+
     def set_close_callback(self, callback: Callable[[], None]):
         self._close_callback = callback
 
@@ -63,6 +69,9 @@ class DtComCmd:
 
     def set_disconnect_callback(self, callback: Callable[[], None]):
         self._disconnect_callback = callback
+
+    def set_watchdog_callback(self, callback: Callable[[], None]):
+        self._watchdog_callback = callback
 
     def read_commands(self):
         if not self._queue.empty():
@@ -76,6 +85,8 @@ class DtComCmd:
             elif cmd == self.DISCONNECT_CMD:
                 _logger.warning("Received disconnect command")
                 self._disconnect_callback()
+            elif cmd == self.WATCHDOG_CMD:
+                self._watchdog_callback()
             else:
                 _logger.error(f"Received unknown command: {cmd}")
 
@@ -98,6 +109,8 @@ class GUISideCommunicationProcess(Process):
         self.cmd_queue.set_connect_callback(self.connect_to_dt)
         self.cmd_queue.set_disconnect_callback(self.disconnect_from_dt)
         self._target_models: dict[str, str] = {}
+        self._watchdog_timeout = 5.0
+        self._watchdog_timer = None
 
 
     def add_target_model(self, target: DTNode | DTStatefulModel):
@@ -105,6 +118,9 @@ class GUISideCommunicationProcess(Process):
             self._target_models[target.name] =  target.source_dev
         else:
             raise ValueError(f"Target model: {target.name} already exists")
+
+    def ping_watchdog(self):
+        self._watchdog_timer = time.time()
 
     def connect_to_dt(self):
         raise NotImplementedError()
@@ -141,6 +157,10 @@ class GUISideCommunicationProcess(Process):
                 pass
 
             self.cmd_queue.read_commands()
+            if self._watchdog_timer is not None and time.time() - self._watchdog_timer > self._watchdog_timeout:
+                _logger.error("Watchdog timeout")
+                self.close_all()
+
 
         _logger.info("End of main loop")
         self._cleanup()
