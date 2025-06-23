@@ -5,17 +5,27 @@ from digtwin.gui.models.dt_sensors import DTSensor
 from digtwin.utils import constants
 import numpy as np
 from panda3d.core import decode_sRGB_float, LQuaternion, LVector3f
+import argparse
 
 # PLC subsystems
 
+parser = argparse.ArgumentParser(
+                    prog='Data generator for the GUI',
+                    description='It generates GUI configuration files',
+                    epilog='Text at the bottom of help')
 
-sc_panel = "smart_conveyor_panel"
-sc_motor = "smart_conveyor_motor"
-sc_cylinder = "smart_conveyor_cylinder"
+parser.add_argument('-g', '--global_plc', action='store_true', help="Set the configuration to work with a single PLC")
 
-# sc_panel = "global_plc"
-# sc_motor = "global_plc"
-# sc_cylinder = "global_plc"
+args = parser.parse_args()
+
+if args.global_plc:
+    sc_panel = "global_plc"
+    sc_motor = "global_plc"
+    sc_cylinder = "global_plc"
+else:
+    sc_panel = "smart_conveyor_panel"
+    sc_motor = "smart_conveyor_motor"
+    sc_cylinder = "smart_conveyor_cylinder"
 
 # models
 
