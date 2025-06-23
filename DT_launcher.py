@@ -227,6 +227,7 @@ class SmartConveyorMotor(PLCSubsystem):
         # motor
         self._register_internal_variable("prox_1", False, [False], "prox1")
         self._register_internal_variable("prox_2", False, [False], "prox2")
+        self._register_internal_variable("motor_unpowered", False, [False], "motor_unpowered")
 
         # outputs
 
@@ -261,13 +262,17 @@ class SmartConveyorMotor(PLCSubsystem):
 
         # memory
 
-        self.cylinder_moving_forward = False
-        self.cylinder_moving_backward = False
+        self._part_on_flap = False
 
         # triggers ref
 
         self._old_prox_1 = self.int_prox_1
         self._old_prox_2 = self.int_prox_2
+        self._old_motor_unpowered = self.int_motor_unpowered
+        self._old_motor_position = 0
+        self._old_motor_stuck = False
+        self._old_reset_alarm_cmd = False
+        self._old_reset_counters_cmd = False
 
         # timer refs
 
@@ -275,6 +280,8 @@ class SmartConveyorMotor(PLCSubsystem):
         self._light_blink_timer = time.time()
         self._light_blink_timeout = 0
         self._gate_timer = time.time()
+        self._motor_speed_mes_timer = time.time()
+        self._stuck_timer = 0
 
 
         # physics
@@ -285,7 +292,7 @@ class SmartConveyorMotor(PLCSubsystem):
         self._motor.run(time.time())
         # motor
 
-        self.int_motor_en_port = self.ext_motor_run_cmd
+        self.int_motor_en_port = self.ext_motor_run_cmd and not self.int_motor_unpowered
         self.int_motor_speed_port = self.ext_motor_speed_cmd
         self.int_motor_dir_port = not self.ext_motor_dir_cmd
 
@@ -305,15 +312,55 @@ class SmartConveyorMotor(PLCSubsystem):
             if self.int_prox_2:
                 self.ext_part_counter += 1
                 _logger.info(f"Part counter: {self.ext_part_counter}")
+                self._stuck_timer = time.time()
+                self._part_on_flap = True
+            else:
+                self._part_on_flap = False
             self._old_prox_2 = self.int_prox_2
 
-        #cylinder
+
+        if self._part_on_flap and not self.ext_part_stuck and time.time() - self._stuck_timer > 5.0:
+            _logger.warning("PART STUCK ALARM")
+            self.ext_part_stuck = True
+
+        if time.time() - self._motor_speed_mes_timer > 1.0:
+            average_speed = self.ext_motor_position - self._old_motor_position
+            if not average_speed and self.ext_motor_run_cmd: # zero speed but motor enabled
+                self._old_motor_stuck = True
+                _logger.warning("Motor is about to be stuck")
+                if self._old_motor_stuck:  # second time
+                    _logger.warning("Motor STUCK!")
+                    self.ext_motor_stuck = True
+            else:
+                self._old_motor_stuck = False
+
+
+            self._motor_speed_mes_timer = time.time()
+            self._old_motor_position = self.ext_motor_position
+
+        if self._old_reset_alarm_cmd != self.ext_reset_alarm_cmd:
+            if self.ext_reset_alarm_cmd:
+                _logger.info("RESETTING ALARMS")
+                self.ext_motor_stuck = False
+                self._old_motor_stuck = False
+                self.ext_part_stuck = False
+            self._old_reset_alarm_cmd = self.ext_reset_alarm_cmd
+
+        if self._old_reset_counters_cmd != self.ext_reset_counters_cmd:
+            if self.ext_reset_counters_cmd:
+                _logger.info("RESETTING COUNTERS")
+                self.ext_produced_part_counter = 0
+                self.ext_part_counter = 0
+            self._old_reset_counters_cmd = self.ext_reset_counters_cmd
+
 
         self.debug_print()
 
 
     def debug_print(self):
-        pass
+        if self._old_motor_unpowered != self.int_motor_unpowered:
+            _logger.info(f"Motor power set to: {not self.int_motor_unpowered}")
+            self._old_motor_unpowered = self.int_motor_unpowered
 
     @property
     def int_prox_1(self) -> bool:
@@ -322,6 +369,10 @@ class SmartConveyorMotor(PLCSubsystem):
     @property
     def int_prox_2(self) -> bool:
         return self._read_internal_variable("prox2")[0]
+
+    @property
+    def int_motor_unpowered(self) -> bool:
+        return self._read_internal_variable("motor_unpowered")[0]
 
     @property
     def phys_motor_pos(self) -> float:
