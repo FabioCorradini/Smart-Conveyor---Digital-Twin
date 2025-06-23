@@ -108,6 +108,7 @@ class GUISideCommunicationProcess(Process):
         self.cmd_queue.set_close_callback(self.close_all)
         self.cmd_queue.set_connect_callback(self.connect_to_dt)
         self.cmd_queue.set_disconnect_callback(self.disconnect_from_dt)
+        self.cmd_queue.set_watchdog_callback(self._reset_watchdog)
         self._target_models: dict[str, str] = {}
         self._watchdog_timeout = 5.0
         self._watchdog_timer = None
@@ -119,8 +120,12 @@ class GUISideCommunicationProcess(Process):
         else:
             raise ValueError(f"Target model: {target.name} already exists")
 
-    def ping_watchdog(self):
+    def _reset_watchdog(self):
+        # _logger.info("Resetting watchdog timer")
         self._watchdog_timer = time.time()
+
+    def ping_watchdog(self):
+        self.cmd_queue.send_watchdog_cmd()
 
     def connect_to_dt(self):
         raise NotImplementedError()

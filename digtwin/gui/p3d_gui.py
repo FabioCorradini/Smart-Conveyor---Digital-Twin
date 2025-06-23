@@ -276,6 +276,7 @@ class P3dGui(p3dw.Panda3DWorld):
         while not self.exiting:
             self._com_proc.ping_watchdog()
             time.sleep(1.0)
+        _logger.info("Watchdog finished")
 
     def debug_routine(self):
 
