@@ -1,4 +1,6 @@
 from digtwin.control.plc_subsystem import PLCSubsystem, ModVarType
+from digtwin.physics.motor import Motor
+import numpy as np
 import time
 import asyncio
 import signal
@@ -11,215 +13,445 @@ logging.basicConfig(level=logging.DEBUG)
 class SmartConveyorPanel(PLCSubsystem):
     def __init__(self):
         super(SmartConveyorPanel, self).__init__("smart_conveyor_panel")
-
-
         # inputs
-        self._register_internal_variable("emergency", False, [True], "mushroom")
+        # panel
+        self._register_internal_variable("emergency", False, [False], "mushroom")
         self._register_internal_variable("switch", False, [False], "festo_switch")
         self._register_internal_variable("red_button", False, [False], "pushbutton_red")
         self._register_internal_variable("green_button", False, [False], "pushbutton_green")
 
-        self._register_external_variable("system_alarm_1", ModVarType.BOOLEAN, False, False)
-        self._register_external_variable("system_alarm_2", ModVarType.BOOLEAN, False, False)
-        self._register_external_variable("system_alarm_3", ModVarType.BOOLEAN, False, False)
-        self._register_external_variable("motor_status", ModVarType.BOOLEAN, False, False)  # new
-        self._register_external_variable("system_state", ModVarType.INT16, False, 0)
-
-         # outputs
-
+        # outputs
         self._register_internal_variable("green_light", True, [False], "lightpanel_green")
         self._register_internal_variable("red_light", True, [False], "lightpanel_red")
 
+        # externals
+        # inputs
+        self._register_external_variable("panel_alarm_1", ModVarType.BOOLEAN ,False, False)
+        self._register_external_variable("panel_alarm_2", ModVarType.BOOLEAN ,False, False)
 
-        self._register_external_variable("panel_alarm", ModVarType.BOOLEAN, True, False)
-        self._register_external_variable("panel_running", ModVarType.BOOLEAN, True, False)
-        self._register_external_variable("panel_mode", ModVarType.BOOLEAN, True, False)
-        self._register_external_variable("cylinder_on", ModVarType.BOOLEAN, True, False) # new
-        self._register_external_variable("motor_on", ModVarType.BOOLEAN, True, False) # new
-        self._register_external_variable("panel_state", ModVarType.INT16, True, 0)
-        self._register_external_variable("panel_motor_speed", ModVarType.INT16, True, 0) # new
+        # outputs
+        self._register_external_variable("panel_alarm_out", ModVarType.BOOLEAN ,True, False)
+        self._register_external_variable("panel_mode", ModVarType.BOOLEAN ,True, False)
+        self._register_external_variable("panel_cylinder_on", ModVarType.BOOLEAN ,True, False)
+        self._register_external_variable("panel_motor_on", ModVarType.BOOLEAN, True, False)
+        self._register_external_variable("panel_motor_speed", ModVarType.INT16, True, False)
 
-        # self._old_panel_alarm = False
-        # self._old_system_alarm_1 = False
-        # self._old_system_alarm_2 = False
-        # self._old_system_alarm_3 = False
-        #
-        # self._old_panel_running = False
-        # self._old_panel_state = 0
-        # self._old_system_state = 0
+        # self.ext_panel_motor_on = False
+        # self.ext_panel_cylinder_on = False
+        # self.ext_panel_motor_speed = 1.0
+        # self.ext_panel_mode = False
+        # self.ext_panel_alarm_out = False
 
-        self._old_motor_on = False
+        # memory
+
+        # triggers ref
+
+        self._old_switch = False
         self._old_green_button = False
-        self._old_panel_motor_speed = 0
+        self._old_red_button = False
+        self._old_panel_motor_speed = False
+        self._old_panel_motor_on = False
+        self._old_panel_cylinder_on = False
+        self._old_emergency = False
 
-        self._old_emergency = True
+        # timer refs
 
-        self._speed_timer = time.time()
-        self.loop_time =  time.time()
+        self._g_button_timer = time.time()
+        self._light_blink_timer = time.time()
+        self._light_blink_timeout = 0
 
+        # physics
 
     def main_plc_task(self):
-        self.debug_print()
+
+        # panel
+        if self.int_emergency:
+            self.ext_panel_motor_on = False
+            self.ext_panel_cylinder_on = False
+            self.int_green_light = False
+            self.int_red_light = False
+            self.ext_panel_alarm_out = True
+        else:
+            self.ext_panel_alarm_out = False
+            if self.int_switch:
+                if self._old_switch != self.int_switch:
+                    _logger.info("Auto mode enabled")
+                    self._old_switch = self.int_switch
+
+                if self._old_green_button != self.int_green_button:
+                    if self.int_green_button:
+                        _logger.info("Activating conveyor")
+                        self.ext_panel_motor_on = True
+                        self._g_button_timer = time.time()
+                    self._old_green_button = self.int_green_button
+
+                if self._old_red_button != self.int_red_button:
+                    if self.int_red_button:
+                        _logger.info("Deactivating conveyor")
+                        self.ext_panel_motor_on = False
+                    self._old_red_button = self.int_red_button
+
+                if self.int_green_button:
+                    # controlling timer
+                    self.ext_panel_motor_speed = (int(time.time() - self._g_button_timer) % 3) + 1
+
+            else:
+                if self._old_switch != self.int_switch:
+                    _logger.info("Manual mode enabled")
+                    self._old_switch = self.int_switch
+
+                self.ext_panel_motor_on = self.int_green_button and not self.int_emergency
+                self.ext_panel_cylinder_on = self.int_red_button and not self.int_emergency
+
+            self.int_green_light = self.ext_panel_motor_on and not (
+                        self.ext_panel_alarm_1 or self.ext_panel_alarm_2)
+
+        if not self.ext_panel_alarm_1 and not self.ext_panel_alarm_2:
+            self._light_blink_timeout = 0.0
+        elif self.ext_panel_alarm_1:
+            self._light_blink_timeout = 1.0
+        elif self.ext_panel_alarm_2:
+            self._light_blink_timeout = 2.0
+
+        if self._light_blink_timeout:
+            if (time.time() - self._light_blink_timer) > self._light_blink_timeout:
+                self.int_red_light = not self.int_red_light
+                self._light_blink_timer = time.time()
+        else:
+            self.int_red_light = False
 
         self.ext_panel_mode = self.int_switch
 
-        self.ext_motor_on = (self.int_green_button or self.ext_motor_on) and not self.int_switch and self.int_emergency
-        self.ext_cylinder_on = self.int_red_button and not self.int_switch and self.int_emergency
-
-        if self._old_green_button != self.int_green_button:
-            if self.int_green_button:
-                _logger.info("Green button pressed")
-                self._speed_timer = time.time()
-            else:
-                _logger.info("Green button released")
-            self._old_green_button = self.int_green_button
-
-        if self.int_green_button:
-            if 1.0 <= (time.time() - self._speed_timer) < 2.0:
-                self.ext_panel_motor_speed = 1
-            elif 2.0 <= (time.time() - self._speed_timer) < 3.0:
-                self.ext_panel_motor_speed = 2
-            elif 3.0 <= (time.time() - self._speed_timer) < 4.0:
-                self.ext_panel_motor_speed = 3
-            elif 4.0 <= (time.time() - self._speed_timer):
-                self.ext_panel_motor_speed = 0
-
-        if self._old_emergency != self.int_emergency:
-            if not self.int_emergency:
-                self.ext_panel_alarm = True
-                print("Emergency alarm!")
-                self.ext_panel_motor_speed = 0
-            else:
-                print("Emergency realeased!")
-                self.ext_panel_alarm = False
-            self._old_emergency = self.int_emergency
-
+        self.debug_print()
 
     def debug_print(self):
+        if self._old_panel_motor_on != self.ext_panel_motor_on:
+            _logger.info(f"Motor on switched to: {self.ext_panel_motor_on}")
+            self._old_panel_motor_on = self.ext_panel_motor_on
 
-        if self._old_motor_on != self.ext_motor_on:
-            print(f"motor on: {self.ext_motor_on}")
-            self._old_motor_on = self.ext_motor_on
+        if self._old_panel_cylinder_on != self.ext_panel_cylinder_on:
+            _logger.info(f"Cylinder on switched to: {self.ext_panel_cylinder_on}")
+            self._old_panel_cylinder_on = self.ext_panel_cylinder_on
 
         if self._old_panel_motor_speed != self.ext_panel_motor_speed:
-            print(f"panel motor speed: {self.ext_panel_motor_speed}")
+            _logger.info(f"Motor speed se to: {self._old_panel_motor_speed}")
             self._old_panel_motor_speed = self.ext_panel_motor_speed
 
-
+        if self._old_emergency != self.int_emergency:
+            if self.int_emergency:
+                _logger.info(f"Emergency called")
+            else:
+                _logger.info(f"Emergency decativated")
+            self._old_emergency = self.int_emergency
 
     @property
     def int_green_light(self) -> bool:
         return self._read_internal_variable("lightpanel_green")[0]
+
     @int_green_light.setter
     def int_green_light(self, value: bool):
         self._write_internal_variable("lightpanel_green", [value])
+
     @property
     def int_red_light(self) -> bool:
         return self._read_internal_variable("lightpanel_red")[0]
+
     @int_red_light.setter
     def int_red_light(self, value: bool):
         self._write_internal_variable("lightpanel_red", [value])
+
     @property
     def int_emergency(self) -> bool:
         return self._read_internal_variable("mushroom")[0]
+
     @property
     def int_switch(self) -> bool:
         return self._read_internal_variable("festo_switch")[0]
+
     @property
     def int_red_button(self) -> bool:
         return self._read_internal_variable("pushbutton_red")[0]
+
     @property
     def int_green_button(self) -> bool:
         return self._read_internal_variable("pushbutton_green")[0]
 
     @property
-    def ext_panel_alarm(self) -> bool:
-        return self._read_external_variable("panel_alarm")
-
-    @ext_panel_alarm.setter
-    def ext_panel_alarm(self, value: bool):
-        self._write_external_variable("panel_alarm", value)
+    def ext_panel_alarm_1(self) -> bool:
+        return self._read_external_variable("panel_alarm_1")
 
     @property
-    def ext_system_alarm_1(self) -> bool:
-        return self._read_external_variable("system_alarm_1")
+    def ext_panel_alarm_2(self) -> bool:
+        return self._read_external_variable("panel_alarm_2")
 
     @property
-    def ext_system_alarm_2(self) -> bool:
-        return self._read_external_variable("system_alarm_2")
-    @property
-    def ext_system_alarm_3(self) -> bool:
-        return self._read_external_variable("system_alarm_3")
-
-    @property
-    def ext_panel_running(self) -> bool:
-        return self._read_external_variable("panel_running")
-
-    @ext_panel_running.setter
-    def ext_panel_running(self, value: bool):
-        self._write_external_variable("panel_running", value)
-
-    @property
-    def ext_panel_state(self) -> int:
-        return self._read_external_variable("panel_state")
-
-    @ext_panel_state.setter
-    def ext_panel_state(self, value: int):
-        self._write_external_variable("panel_state", value)
-
-    @property
-    def ext_system_state(self) -> int:
-        return self._read_external_variable("system_state")
-
-    @property
-    def ext_motor_status(self) -> bool:
-        return self._read_external_variable("motor_status")
-
-    @property
-    def ext_cylinder_on(self):
-        return self._read_external_variable("cylinder_on")
-
-    @ext_cylinder_on.setter
-    def ext_cylinder_on(self, value: bool):
-        self._write_external_variable("cylinder_on", value)
-
-    @property
-    def ext_motor_on(self):
-        return self._read_external_variable("motor_on")
-
-    @ext_motor_on.setter
-    def ext_motor_on(self, value: bool):
-        self._write_external_variable("motor_on", value)
-
-    @property
-    def ext_panel_motor_speed(self) -> int:
-        return self._read_external_variable("panel_motor_speed")
-
-    @ext_panel_motor_speed.setter
-    def ext_panel_motor_speed(self, value: int):
-        self._write_external_variable("panel_motor_speed", value)
+    def ext_panel_alarm_out(self) -> bool:
+        return self._read_external_variable("panel_alarm_out")
+    @ext_panel_alarm_out.setter
+    def ext_panel_alarm_out(self, value: bool):
+        self._write_external_variable("panel_alarm_out", value)
 
     @property
     def ext_panel_mode(self) -> bool:
         return self._read_external_variable("panel_mode")
-
     @ext_panel_mode.setter
     def ext_panel_mode(self, value: bool):
         self._write_external_variable("panel_mode", value)
 
+    @property
+    def ext_panel_cylinder_on(self) -> bool:
+        return self._read_external_variable("panel_cylinder_on")
+    @ext_panel_cylinder_on.setter
+    def ext_panel_cylinder_on(self, value: bool):
+        self._write_external_variable("panel_cylinder_on", value)
+
+    @property
+    def ext_panel_motor_on(self) -> bool:
+        return self._read_external_variable("panel_motor_on")
+    @ext_panel_motor_on.setter
+    def ext_panel_motor_on(self, value: bool):
+        self._write_external_variable("panel_motor_on", value)
+
+    @property
+    def ext_panel_motor_speed(self) -> bool:
+        return self._read_external_variable("panel_motor_speed")
+    @ext_panel_motor_speed.setter
+    def ext_panel_motor_speed(self, value: bool):
+        self._write_external_variable("panel_motor_speed", value)
+
+
+class SmartConveyorMotor(PLCSubsystem):
+    def __init__(self):
+        super(SmartConveyorMotor, self).__init__("smart_conveyor_motor", modbus_port=5021)
+        # inputs
+        # motor
+        self._register_internal_variable("prox_1", False, [False], "prox1")
+        self._register_internal_variable("prox_2", False, [False], "prox2")
+
+        # outputs
+
+        # motor
+        self._register_internal_variable("phys_encoder_pos", True, [0], "encoder_node")
+        self._register_internal_variable("phys_motor_pos_0", True, [0], "conveyor_node_0")
+        self._register_internal_variable("phys_motor_pos_1", True, [0], "conveyor_node_1")
+        self._register_internal_variable("phys_motor_pos_2", True, [0], "conveyor_node_2")
+        self._register_internal_variable("phys_motor_pos_3", True, [0], "conveyor_node_3")
+        self._register_internal_variable("phys_motor_pos_4", True, [0], "conveyor_node_4")
+        self._register_internal_variable("phys_motor_pos_5", True, [0], "conveyor_node_5")
+        self._register_internal_variable("phys_motor_pos_6", True, [0], "conveyor_node_6")
+        self._register_internal_variable("phys_motor_pos_7", True, [0], "conveyor_node_7")
+        self._register_internal_variable("phys_motor_pos_8", True, [0], "conveyor_node_8")
+
+        # externals
+        # inputs
+        self._register_external_variable("motor_run_cmd", ModVarType.BOOLEAN, False, False)
+        self._register_external_variable("motor_dir_cmd", ModVarType.BOOLEAN, False, False)
+        self._register_external_variable("motor_speed_cmd", ModVarType.INT16, False, 1)
+        self._register_external_variable("reset_counters_cmd", ModVarType.BOOLEAN, False, False)
+        self._register_external_variable("motor_alarm_1 ", ModVarType.BOOLEAN, False, False)
+        self._register_external_variable("motor_alarm_2", ModVarType.BOOLEAN, False, False)
+        self._register_external_variable("reset_alarm_cmd", ModVarType.BOOLEAN, False, False)
+
+        # outputs
+        self._register_external_variable("motor_position", ModVarType.INT16, True, 0)
+        self._register_external_variable("produced_part_counter", ModVarType.INT16, True, 0)
+        self._register_external_variable("part_counter", ModVarType.INT16, True, 0)
+        self._register_external_variable("part_stuck", ModVarType.BOOLEAN, True, False)
+        self._register_external_variable("motor_stuck", ModVarType.BOOLEAN, True, False)
+
+        # memory
+
+        self.cylinder_moving_forward = False
+        self.cylinder_moving_backward = False
+
+        # triggers ref
+
+        self._old_prox_1 = self.int_prox_1
+        self._old_prox_2 = self.int_prox_2
+
+        # timer refs
+
+        self._g_button_timer = time.time()
+        self._light_blink_timer = time.time()
+        self._light_blink_timeout = 0
+        self._gate_timer = time.time()
+
+
+        # physics
+        self._motor = Motor()
+
+
+    def main_plc_task(self):
+        self._motor.run(time.time())
+        # motor
+
+        self.int_motor_en_port = self.ext_motor_run_cmd
+        self.int_motor_speed_port = self.ext_motor_speed_cmd
+        self.int_motor_dir_port = not self.ext_motor_dir_cmd
+
+        self.phys_motor_pos = self._motor.theta
+
+        self.ext_motor_position = int(self._motor.theta * 400 * 27.0/(17.5*2*np.pi))
+
+        if self._old_prox_1 != self.int_prox_1:
+            if self.int_prox_1:
+                self.ext_produced_part_counter += 1
+                self.ext_part_counter -= 1
+                _logger.info(f"Produced part counter: {self.ext_produced_part_counter}")
+                _logger.info(f"Part counter: {self.ext_part_counter}")
+            self._old_prox_1 = self.int_prox_1
+
+        if self._old_prox_2 != self.int_prox_2:
+            if self.int_prox_2:
+                self.ext_part_counter += 1
+                _logger.info(f"Part counter: {self.ext_part_counter}")
+            self._old_prox_2 = self.int_prox_2
+
+        #cylinder
+
+        self.debug_print()
+
+
+    def debug_print(self):
+        pass
+
+    @property
+    def int_prox_1(self) -> bool:
+        return self._read_internal_variable("prox1")[0]
+
+    @property
+    def int_prox_2(self) -> bool:
+        return self._read_internal_variable("prox2")[0]
+
+    @property
+    def phys_motor_pos(self) -> float:
+        return self._motor.theta
+
+    @phys_motor_pos.setter
+    def phys_motor_pos(self, value: float):
+        self._write_internal_variable("encoder_node", [-value])
+        self._write_internal_variable("conveyor_node_0", [value])
+        self._write_internal_variable("conveyor_node_1", [value])
+        self._write_internal_variable("conveyor_node_2", [value])
+        self._write_internal_variable("conveyor_node_3", [value])
+        self._write_internal_variable("conveyor_node_4", [value])
+        self._write_internal_variable("conveyor_node_5", [value])
+        self._write_internal_variable("conveyor_node_6", [value])
+        self._write_internal_variable("conveyor_node_7", [value])
+        self._write_internal_variable("conveyor_node_8", [value])
+
+    @property
+    def int_motor_en_port(self) -> bool:
+        return self._motor.running
+
+    @int_motor_en_port.setter
+    def int_motor_en_port(self, value: bool):
+        self._motor.running = value
+
+    @property
+    def int_motor_dir_port(self):
+        return self._motor.moving_forward
+
+    @int_motor_dir_port.setter
+    def int_motor_dir_port(self, value: bool):
+        self._motor.moving_forward = value
+
+    @property
+    def int_motor_speed_port(self) -> float:
+        return self._motor.movement_speed
+
+    @int_motor_speed_port.setter
+    def int_motor_speed_port(self, value: float):
+        self._motor.movement_speed = value * 2*np.pi
+
+    @property
+    def ext_motor_run_cmd(self) -> bool:
+        return self._read_external_variable("motor_run_cmd")
+
+    @property
+    def ext_motor_dir_cmd(self) -> bool:
+        return self._read_external_variable("motor_dir_cmd")
+
+    @property
+    def ext_motor_speed_cmd(self) -> int:
+        return self._read_external_variable("motor_speed_cmd")
+
+    @property
+    def ext_reset_counters_cmd(self) -> bool:
+        return self._read_external_variable("reset_counters_cmd")
+
+    @property
+    def ext_motor_alarm_1(self) -> bool:
+        return self._read_external_variable("motor_alarm_1")
+
+    @property
+    def ext_motor_alarm_2(self) -> bool:
+        return self._read_external_variable("motor_alarm_2")
+
+    @property
+    def ext_reset_alarm_cmd(self) -> bool:
+        return self._read_external_variable("reset_alarm_cmd")
+
+    @property
+    def ext_motor_position(self) -> int:
+        return self._read_external_variable("motor_position")
+    @ext_motor_position.setter
+    def ext_motor_position(self, value: int):
+        self._write_external_variable("motor_position", value)
+
+    @property
+    def ext_produced_part_counter(self) -> int:
+        return self._read_external_variable("produced_part_counter")
+    @ext_produced_part_counter.setter
+    def ext_produced_part_counter(self, value: int):
+        self._write_external_variable("produced_part_counter", value)
+
+    @property
+    def ext_part_counter(self) -> int:
+        return self._read_external_variable("part_counter")
+    @ext_part_counter.setter
+    def ext_part_counter(self, value: int):
+        self._write_external_variable("part_counter", value)
+
+    @property
+    def ext_part_stuck(self):
+        return self._read_external_variable("part_stuck")
+    @ext_part_stuck.setter
+    def ext_part_stuck(self, value: bool):
+        self._write_external_variable("part_stuck", value)
+
+    @property
+    def ext_motor_stuck(self):
+        return self._read_external_variable("motor_stuck")
+    @ext_motor_stuck.setter
+    def ext_motor_stuck(self, value: bool):
+        self._write_external_variable("motor_stuck", value)
+
+
 async def main():
     panel_plc = SmartConveyorPanel()
+    motor_plc = SmartConveyorMotor()
+
+    def close(a, b):
+        panel_plc.close(a,b)
+        motor_plc.close(a,b)
+
     await panel_plc.init()
+    await motor_plc.init()
     plc_task = asyncio.create_task(panel_plc.run())
-    signal.signal(signal.SIGINT, panel_plc.close)
-    signal.signal(signal.SIGTERM, panel_plc.close)
+    motor_task = asyncio.create_task(motor_plc.run())
+    signal.signal(signal.SIGINT, close)
+    signal.signal(signal.SIGTERM, close)
     print(panel_plc.print_registers())
     print(panel_plc.print_topics())
+    print(motor_plc.print_registers())
+    print(motor_plc.print_topics())
     try:
-        while not plc_task.done():
+        while not plc_task.done() and not motor_task.done():
             await asyncio.sleep(1.0)
     finally:
         await plc_task
+        await motor_task
 
 if __name__ == '__main__':
     asyncio.run(main())

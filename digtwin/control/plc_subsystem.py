@@ -86,6 +86,11 @@ class PLCSubsystem:
         self.mqtt_port = mqtt_port
         self.event_loop = asyncio.get_event_loop()
 
+        # debug
+
+        self._main_loop_timer = time.time()
+        self._loop_time_limit = 0.05
+
 
     async def init(self):
         _logger.info("Initializing Modbus...")
@@ -143,9 +148,14 @@ class PLCSubsystem:
     async def run(self):
         _logger.info(f"Starting {self.name}")
         while not self._closing:
+            _main_task_time = time.time()
             self.main_plc_task()
-            await asyncio.sleep(0.001)
-            # self._mqtt_client.loop()
+            _main_task_duration = time.time() - _main_task_time
+            if _main_task_duration < self._loop_time_limit:
+                await asyncio.sleep(self._loop_time_limit -_main_task_duration)
+            else:
+                _logger.warning(f"Loop time exceeds limit {_main_task_duration} s on {self._loop_time_limit} s")
+
         await self._cleanup()
 
 
@@ -272,7 +282,7 @@ class PLCSubsystem:
         if mod_var.reg_type == ModRegType.DISCRETE_INPUT:
             self._discrete_input_memory.values[mod_var.address - self.DISCRETE_INPUT_START] = value
         elif mod_var.reg_type == ModRegType.INPUT_REGISTER:
-            self._input_registers_memory.values[mod_var.address - self.INPUT_REGISTER_START] = value
+            self._input_registers_memory.values[mod_var.address - self.INPUT_REGISTER_START] = value%65536 # only values between 0 and 65535 are allowed
         else:
             _logger.error(f"{mod_var.reg_type} for variable {var_name} is not a valid output type")
             raise KeyError(var_name)

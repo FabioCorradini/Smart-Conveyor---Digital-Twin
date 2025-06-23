@@ -367,7 +367,7 @@ class P3dGui(p3dw.Panda3DWorld):
         while not self.exiting:
             try:
                 in_msg = self._dt_to_gui.get(True, 2.0)
-                _logger.warning(f"Received message: {in_msg}")
+                # _logger.warning(f"Received message: {in_msg}")
                 if in_msg.target_name in self.loadable_dict:
                     loadable = self.loadable_dict[in_msg.target_name]
                     if isinstance(loadable, DTNode):
@@ -388,7 +388,7 @@ class P3dGui(p3dw.Panda3DWorld):
         while not self.exiting:
             dt_sensor.changed_event.wait(2.0)
             if not self.exiting and dt_sensor.changed_event.is_set():
-                _logger.info(f"sensor {dt_sensor.name} changed")
+                # _logger.info(f"sensor {dt_sensor.name} changed")
                 self._gui_to_dt.put_message(dt_sensor.name, [dt_sensor.state_id])
                 dt_sensor.changed_event.clear()
 

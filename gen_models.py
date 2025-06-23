@@ -9,13 +9,13 @@ from panda3d.core import decode_sRGB_float, LQuaternion, LVector3f
 # PLC subsystems
 
 
-# sc_panel = "smart_conveyor_panel"
-# sc_motor = "smart_conveyor_motor"
-# sc_cylinder = "smart_conveyor_cylinder"
+sc_panel = "smart_conveyor_panel"
+sc_motor = "smart_conveyor_motor"
+sc_cylinder = "smart_conveyor_cylinder"
 
-sc_panel = "global_plc"
-sc_motor = "global_plc"
-sc_cylinder = "global_plc"
+# sc_panel = "global_plc"
+# sc_motor = "global_plc"
+# sc_cylinder = "global_plc"
 
 # models
 

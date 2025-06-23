@@ -284,7 +284,7 @@ class GlobalPlc(PLCSubsystem):
 
     @phys_motor_pos.setter
     def phys_motor_pos(self, value: float):
-        self._write_internal_variable("encoder_node", [value])
+        self._write_internal_variable("encoder_node", [-value])
         self._write_internal_variable("conveyor_node_0", [value])
         self._write_internal_variable("conveyor_node_1", [value])
         self._write_internal_variable("conveyor_node_2", [value])

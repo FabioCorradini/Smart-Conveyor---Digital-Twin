@@ -156,7 +156,7 @@ class DTModel(DTLoadable):
 
                 c_node.setCollideMask(BitMask32(bit_mask))
                 c_node_np = self.node_path_reference.attach_new_node(c_node)
-                c_node_np.show()
+                # c_node_np.show()
                 self.align_collision_solid(c_node_np)
                 self.collision_node_reference = c_node_np
                 if self.clickable:
