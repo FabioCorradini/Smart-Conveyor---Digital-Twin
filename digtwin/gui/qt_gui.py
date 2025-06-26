@@ -19,13 +19,14 @@ class QtGui(qtw.QMainWindow):
         layout_3d.addWidget(PandaBox(gui_3d))
 
         spawn_actor = qtw.QPushButton("Spawn object")
-        # self.follow_cam = qtw.QCheckBox("Lock cam on tool")
+        despawn_actor = qtw.QPushButton("Remove all objects")
         default_view = qtw.QPushButton("Restore view")
 
         #clean_plate.clicked.connect(self.gui_3d.clear_printing_plate)
-        # self.follow_cam.clicked.connect(self.lock_cam)
+
         default_view.clicked.connect(self.restore_cam_default)
         spawn_actor.clicked.connect(self.spawn_actors)
+        despawn_actor.clicked.connect(self.despawn_actors)
 
         control_3d_scene.addStretch()
 
@@ -33,7 +34,7 @@ class QtGui(qtw.QMainWindow):
             control_3d_scene.addWidget(qt_nodes.get_widget())
 
         control_3d_scene.addWidget(spawn_actor)
-        # control_3d_scene.addWidget(self.follow_cam)
+        control_3d_scene.addWidget(despawn_actor)
         control_3d_scene.addWidget(default_view)
 
 
@@ -78,4 +79,7 @@ class QtGui(qtw.QMainWindow):
 
     def spawn_actors(self):
         self.gui_3d.spawn_actors()
+
+    def despawn_actors(self):
+        self.gui_3d.despawn_actors()
 

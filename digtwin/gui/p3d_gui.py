@@ -555,6 +555,13 @@ class P3dGui(p3dw.Panda3DWorld):
 
         self.cTrav.addCollider(from_object, self.pusher)
 
+    def despawn_actors(self):
+        for actor_name, actor in self.living_actors.items():
+            _logger.info(f"Deleting actor {actor_name}")
+            actor.physics.stash()
+            actor.physics.remove_node()
+        self.living_actors = {}
+
     #camera methods
 
     def shift_camera(self, x, z):
