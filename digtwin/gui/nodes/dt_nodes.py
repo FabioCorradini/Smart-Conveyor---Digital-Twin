@@ -25,31 +25,50 @@ class DTNode(DTLoadable):
         self.theta_period = theta_period
         self.current_state_id = 0
         self._last_theta = None
+        self._last_theta_vector = None
         self.fixed = True
         self.delta_theta = delta_theta if delta_theta is not None else np.zeros((1, n_var))
         self.source_dev = source_dev
+        self._theta_state_ref = 0  # what theta set the direction... not optimal :(
 
 
     def set_theta(self, theta: tuple[float] | list[float]) -> None:
         assert len(theta) == self._n_var
-
+        theta_vector = np.array(theta).transpose() + self.delta_theta
         if self.theta_period is not None:
-            current_theta = (np.array(theta).transpose() + self.delta_theta) % self.theta_period
-            # print(f"current theta: {current_theta}, last theta: {self._last_theta}, state_id: {self.current_state_id}")
+            # set direction
+            if self._last_theta_vector is None:
+                self._last_theta_vector = theta_vector
 
-            if self.current_state_id < (len(self.node_states) - 1) or self._last_theta is None:
-                if (current_theta > self.node_states[self.current_state_id].exit_theta_condition).any():
-                    self.current_state_id += 1
-                    # _logger.info(f"node {self.name} entering state {self.current_state_id}")
-            else: # in the last state we look for resetting
-                if (current_theta < self._last_theta).any():
-                    self.current_state_id = 0
-                    # _logger.info(f"node {self.name} entering state {self.current_state_id}")
+            if self._last_theta_vector[self._theta_state_ref] <= theta_vector[self._theta_state_ref]:
+                frw_direction = True
+            else:
+                frw_direction = False
+
+            self._last_theta_vector = theta_vector
+
+            current_theta = theta_vector % self.theta_period
+
+            if frw_direction:
+                if self.current_state_id < (len(self.node_states) - 1) or self._last_theta is None:
+                    if (current_theta > self.node_states[self.current_state_id].exit_theta_condition).any():
+                        self.current_state_id += 1
+                else: # in the last state we look for resetting
+                    if (current_theta < self._last_theta).any():
+                        self.current_state_id = 0
+            else:
+                if self.current_state_id > 0 or self._last_theta is None:
+                    if (current_theta < self.node_states[self.current_state_id-1].exit_theta_condition).any():
+                        self.current_state_id -= 1
+                else: # in the last state we look for resetting
+                    if (current_theta > self._last_theta).any():
+                        self.current_state_id = len(self.node_states) - 1
+
 
             self._last_theta = current_theta
 
         else:
-            current_theta = np.array(theta).transpose() + self.delta_theta
+            current_theta = theta_vector
 
         current_state = self.node_states[self.current_state_id]
 
