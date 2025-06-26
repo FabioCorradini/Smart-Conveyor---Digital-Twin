@@ -1,7 +1,7 @@
 PyQt5~=5.15.11
 numpy~=2.2.4
 Panda3D~=1.10.15
-QPanda3D~=0.2.10
+QPanda3D @ git+https://github.com/FabioCorradini/QPanda3D-DT.git@main
 paho-mqtt~=2.1.0
 pymodbus~=3.9.2
 asyncua~=1.1.6
