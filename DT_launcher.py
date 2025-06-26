@@ -29,6 +29,8 @@ class SmartConveyorPanel(PLCSubsystem):
         # inputs
         self._register_external_variable("panel_alarm_1", ModVarType.BOOLEAN ,False, False)
         self._register_external_variable("panel_alarm_2", ModVarType.BOOLEAN ,False, False)
+        self._register_external_variable("panel_running", ModVarType.BOOLEAN, False, False)
+        self._register_external_variable("panel_state", ModVarType.INT16, False, 0)
 
         # outputs
         self._register_external_variable("panel_alarm_out", ModVarType.BOOLEAN ,True, False)
@@ -186,6 +188,14 @@ class SmartConveyorPanel(PLCSubsystem):
         return self._read_external_variable("panel_alarm_2")
 
     @property
+    def ext_panel_running(self) -> bool:
+        return self._read_external_variable("panel_running")
+
+    @property
+    def ext_panel_state(self) -> float:
+        return self._read_external_variable("panel_state")
+
+    @property
     def ext_panel_alarm_out(self) -> bool:
         return self._read_external_variable("panel_alarm_out")
     @ext_panel_alarm_out.setter
@@ -323,11 +333,11 @@ class SmartConveyorMotor(PLCSubsystem):
         if time.time() - self._motor_speed_mes_timer > 1.0:
             average_speed = self.ext_motor_position - self._old_motor_position
             if not average_speed and self.ext_motor_run_cmd: # zero speed but motor enabled
-                self._old_motor_stuck = True
                 _logger.warning("Motor is about to be stuck")
                 if self._old_motor_stuck:  # second time
                     _logger.warning("Motor STUCK!")
                     self.ext_motor_stuck = True
+                self._old_motor_stuck = True
             else:
                 self._old_motor_stuck = False
 
