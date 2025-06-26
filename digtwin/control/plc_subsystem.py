@@ -335,17 +335,17 @@ class PLCSubsystem:
             raise ValueError(f"{address} is not a valid address")
 
     def print_registers(self) -> str:
-        s = [f"Device: {self.name}", "Modbus", "Inputs:"]
+        s = [f"Device: {self.name}", f"Modbus {self.modbus_address if self.modbus_address else "0.0.0.0"}:{self.modbus_port}", "Inputs:"]
 
         input_list = sorted(self._external_input_vars.values(), key=lambda x: x.address)
         output_list = sorted(self._external_output_vars.values(), key=lambda x: x.address)
 
         for mod_var in input_list:
-            s.append(f"{mod_var.name} - {mod_var.reg_type.name}: {mod_var.address}")
+            s.append(f"{mod_var.name} - {mod_var.reg_type.name}: {mod_var.address - 1}")
         s.append("Outputs:")
 
         for mod_var in output_list:
-            s.append(f"{mod_var.name} - {mod_var.reg_type.name}: {mod_var.address}")
+            s.append(f"{mod_var.name} - {mod_var.reg_type.name}: {mod_var.address - 1}")
 
         return "\n".join(s)
 
