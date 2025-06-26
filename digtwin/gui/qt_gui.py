@@ -59,23 +59,11 @@ class QtGui(qtw.QMainWindow):
 
         self.show()
 
-    def lock_cam(self):
-        """
-            lock or unlock camera on the tool
-        """
-        if self.follow_cam.isChecked():
-            # self.gui_3d.lock_camera_on_tool()
-            pass
-        else:
-            self.gui_3d.set_fixed_camera()
-
     def restore_cam_default(self):
         """
             reset camera view
         """
         self.gui_3d.camera_preset()
-        if self.follow_cam.isChecked():
-            self.follow_cam.setChecked(False)
 
     def spawn_actors(self):
         self.gui_3d.spawn_actors()
