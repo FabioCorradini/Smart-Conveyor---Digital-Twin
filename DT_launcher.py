@@ -558,10 +558,12 @@ class SmartConveyorCylinder(PLCSubsystem):
                 self._crank_drive.pressure = 1.2e5
                 _logger.info(f"New pressure: {1.2e5}")
                 self.ext_pressure_alarm = True
+
                 _logger.info("Pressure too low!")
             else:
                 self._crank_drive.pressure = 5e5
                 _logger.info(f"New pressure: {5e5}")
+            self._old_low_pressure = self.int_low_pressure
 
         if self._old_cmd_port != self.int_valve_port:
             if self.int_valve_port:
