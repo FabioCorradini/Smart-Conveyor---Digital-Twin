@@ -571,3 +571,19 @@ motor_unpowered = DTCheckNode(
 )
 
 motor_unpowered.save(constants.QT_NODES_DIR)
+
+stuck_state = DTCheckNode(
+    name = "stuck_state",
+    source_dev=sc_cylinder,
+    display_name="Cylinder stuck"
+)
+
+stuck_state.save(constants.QT_NODES_DIR)
+
+low_pressure = DTCheckNode(
+    name = "low_pressure",
+    source_dev=sc_cylinder,
+    display_name="Low pressure"
+)
+
+low_pressure.save(constants.QT_NODES_DIR)

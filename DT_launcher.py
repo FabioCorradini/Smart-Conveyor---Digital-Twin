@@ -494,7 +494,7 @@ class SmartConveyorCylinder(PLCSubsystem):
         # cylinder
         self._register_internal_variable("bck_switch", False, [False], "piston_sens2")
         self._register_internal_variable("frw_switch", False, [False], "piston_sens1")
-        self._register_internal_variable("pressure", False, [400000], "pressure")
+        self._register_internal_variable("low_pressure", False, [False], "low_pressure")
         self._register_internal_variable("stuck_state", False, [False], "stuck_state")
 
         # outputs
@@ -531,8 +531,7 @@ class SmartConveyorCylinder(PLCSubsystem):
         self._old_bck_switch = self.int_bck_switch
         self._old_cmd_port = False
         self._old_stuck_state = False
-        self._old_pressure = self.int_pressure
-        self._old_pressure = self.int_pressure
+        self._old_low_pressure = self.int_low_pressure
         self._old_reset_alarm_cmd = False
         self._old_reset_counters_cmd = False
 
@@ -554,13 +553,15 @@ class SmartConveyorCylinder(PLCSubsystem):
 
         self.int_valve_port = self.ext_flap_cmd and not self.ext_cylinder_alarm_out
 
-        if self._old_pressure != self.int_pressure:
-            self._crank_drive.pressure = self.int_pressure
-            _logger.info(f"New pressure: {self.int_pressure}")
-            if self.int_pressure < 2e5:
+        if self._old_low_pressure != self.int_low_pressure:
+            if self.int_low_pressure:
+                self._crank_drive.pressure = 1.2e5
+                _logger.info(f"New pressure: {1.2e5}")
                 self.ext_pressure_alarm = True
                 _logger.info("Pressure too low!")
-            self._old_pressure = self.int_pressure
+            else:
+                self._crank_drive.pressure = 5e5
+                _logger.info(f"New pressure: {5e5}")
 
         if self._old_cmd_port != self.int_valve_port:
             if self.int_valve_port:
@@ -639,8 +640,8 @@ class SmartConveyorCylinder(PLCSubsystem):
         return self._read_internal_variable("piston_sens1")[0]
 
     @property
-    def int_pressure(self) -> float:
-        return self._read_internal_variable("pressure")[0]
+    def int_low_pressure(self) -> float:
+        return self._read_internal_variable("low_pressure")[0]
 
     @property
     def int_stuck_state(self):
