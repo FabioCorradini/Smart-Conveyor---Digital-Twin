@@ -2,6 +2,10 @@ import os
 from pathlib import Path
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "./Data"))
+
+if not DATA_DIR.is_dir():
+    DATA_DIR.mkdir()
+
 MODELS_DIR = DATA_DIR / "models"
 
 if not MODELS_DIR.is_dir():
@@ -26,6 +30,11 @@ SENSORS_DIR = DATA_DIR / "sensors"
 
 if not SENSORS_DIR.is_dir():
     SENSORS_DIR.mkdir()
+
+QT_NODES_DIR = DATA_DIR / "qt-nodes"
+
+if not QT_NODES_DIR.is_dir():
+    QT_NODES_DIR.mkdir()
 
 DIGITAL_TWIN_MQTT_ADDRESS = "localhost"
 DIGITAL_TWIN_MQTT_PORT = 1883

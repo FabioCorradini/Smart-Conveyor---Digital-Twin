@@ -9,7 +9,7 @@ import logging
 
 _logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
-logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("pymodbus").setLevel(logging.INFO)
 
 class SmartConveyorPanel(PLCSubsystem):
     def __init__(self):

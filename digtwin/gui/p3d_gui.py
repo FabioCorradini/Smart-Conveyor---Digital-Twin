@@ -13,6 +13,7 @@ from digtwin.gui.models.dt_models import DTModel, DTStatefulModel
 from digtwin.gui.models.dt_sensors import DTSensor
 from digtwin.gui.nodes.dt_nodes import DTNode, DTNodeState
 from digtwin.gui.dt_loadable import DTLoadable
+from digtwin.gui.qt_nodes.dt_chek_nodes import DTCheckNode
 from digtwin.utils import constants
 from direct.stdpy.threading import Thread
 from digtwin.gui.qt.action_window import DTActionWindow
@@ -135,6 +136,7 @@ class P3dGui(p3dw.Panda3DWorld):
     stateful_model_list: list[DTStatefulModel]
     nodes_list: list[DTNode]
     actor_list: list[DTActor]
+    qt_nodes_list: list[DTCheckNode]
     living_actors: dict[str, LivingActorNode]
     loadable_dict: dict[str,DTLoadable]
     cam_base_node: NodePath
@@ -157,6 +159,7 @@ class P3dGui(p3dw.Panda3DWorld):
         self.stateful_model_list = []
         self.nodes_list = []
         self.actor_list = []
+        self.qt_nodes_list = []
         self.loadable_dict = {}
 
         self.living_actors = {}
@@ -261,6 +264,12 @@ class P3dGui(p3dw.Panda3DWorld):
             self._com_proc.add_target_model(stateful_model)
             if not stateful_model.is_input():
                 self._sensors_thread_list.append(Thread(name=f"{stateful_model.name}_write_thread", target= self.communication_write_routine, args=(stateful_model,)))
+
+        for qt_node in self.qt_nodes_list:
+            self._com_proc.add_target_model(qt_node)
+            self._sensors_thread_list.append(
+                Thread(name=f"{qt_node.name}_write_thread", target=self.communication_write_routine,
+                       args=(qt_node,)))
 
         self._com_proc.start()
         self._cmd_queue.send_connect_cmd()
@@ -390,7 +399,7 @@ class P3dGui(p3dw.Panda3DWorld):
             except queue.Empty:
                 pass
 
-    def communication_write_routine(self, dt_sensor: DTSensor):
+    def communication_write_routine(self, dt_sensor: DTStatefulModel | DTCheckNode):
         _logger.info(f"Started reading routine for {dt_sensor.name}")
         while not self.exiting:
             dt_sensor.changed_event.wait(2.0)
@@ -470,6 +479,11 @@ class P3dGui(p3dw.Panda3DWorld):
                 dt_sensor = DTSensor.load(dt_sensor_path)
                 self._add_stateful_model(dt_sensor)
                 self.loadable_dict[dt_sensor.name] = dt_sensor
+
+        if constants.QT_NODES_DIR.is_dir():
+            for dt_qt_node_path in constants.QT_NODES_DIR.glob("**/*.json"):
+                qt_node = DTCheckNode.load(dt_qt_node_path)
+                self.qt_nodes_list.append(qt_node)
 
 
         for name, dt_loadable in self.loadable_dict.items():

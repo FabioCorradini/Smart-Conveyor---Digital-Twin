@@ -2,6 +2,8 @@ from digtwin.gui.models.dt_models import DTModel, DTStatefulModel
 from digtwin.gui.models.dt_actors import DTActor
 from digtwin.gui.nodes.dt_nodes import DTNode
 from digtwin.gui.models.dt_sensors import DTSensor
+from digtwin.gui.qt_nodes.dt_chek_nodes import DTCheckNode
+
 from digtwin.utils import constants
 import numpy as np
 from panda3d.core import decode_sRGB_float, LQuaternion, LVector3f
@@ -561,3 +563,11 @@ piston_sens2.add_state(
 )
 
 piston_sens2.save(constants.SENSORS_DIR)
+
+motor_unpowered = DTCheckNode(
+    name = "motor_unpowered",
+    source_dev=sc_motor,
+    display_name="Motor stuck"
+)
+
+motor_unpowered.save(constants.QT_NODES_DIR)

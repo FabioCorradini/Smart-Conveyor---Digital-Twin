@@ -8,6 +8,8 @@ from digtwin.gui.nodes.dt_nodes import DTNode
 from digtwin.gui.models.dt_models import DTStatefulModel
 import signal
 
+from digtwin.gui.qt_nodes.dt_chek_nodes import DTCheckNode
+
 _logger = logging.getLogger(__name__)
 
 @dataclass
@@ -114,7 +116,7 @@ class GUISideCommunicationProcess(Process):
         self._watchdog_timer = None
 
 
-    def add_target_model(self, target: DTNode | DTStatefulModel):
+    def add_target_model(self, target: DTNode | DTStatefulModel | DTCheckNode):
         if not target.name in self._target_models:
             self._target_models[target.name] =  target.source_dev
         else:
