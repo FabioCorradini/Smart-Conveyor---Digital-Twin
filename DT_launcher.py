@@ -1,6 +1,7 @@
 from digtwin.control.plc_subsystem import PLCSubsystem, ModVarType
 from digtwin.physics.motor import Motor
 from digtwin.physics.crank_drive import CrankDrive
+from pymodbus.client import ModbusTcpClient
 import numpy as np
 import time
 import asyncio
@@ -38,12 +39,6 @@ class SmartConveyorPanel(PLCSubsystem):
         self._register_external_variable("panel_cylinder_on", ModVarType.BOOLEAN ,True, False)
         self._register_external_variable("panel_motor_on", ModVarType.BOOLEAN, True, False)
         self._register_external_variable("panel_motor_speed", ModVarType.INT16, True, False)
-
-        # self.ext_panel_motor_on = False
-        # self.ext_panel_cylinder_on = False
-        # self.ext_panel_motor_speed = 1.0
-        # self.ext_panel_mode = False
-        # self.ext_panel_alarm_out = False
 
         # memory
 
@@ -271,6 +266,14 @@ class SmartConveyorMotor(PLCSubsystem):
         self._register_external_variable("part_stuck", ModVarType.BOOLEAN, True, False)
         self._register_external_variable("motor_stuck", ModVarType.BOOLEAN, True, False)
 
+        self._register_external_variable("long_encoder_pos_reg_0", ModVarType.INT16, True, 0)
+        self._register_external_variable("long_encoder_pos_reg_1", ModVarType.INT16, True, 0)
+        self._register_external_variable("long_encoder_pos_reg_2", ModVarType.INT16, True, 0)
+        self._register_external_variable("long_encoder_pos_reg_3", ModVarType.INT16, True, 0)
+
+        self._register_external_variable("float_motor_speed_reg_0", ModVarType.INT16, True, 0)
+        self._register_external_variable("float_motor_speed_reg_1", ModVarType.INT16, True, 0)
+
         # memory
 
         self._part_on_flap = False
@@ -284,6 +287,7 @@ class SmartConveyorMotor(PLCSubsystem):
         self._old_motor_stuck = False
         self._old_reset_alarm_cmd = False
         self._old_reset_counters_cmd = False
+        self._old_theta = 0
 
         # timer refs
 
@@ -305,7 +309,10 @@ class SmartConveyorMotor(PLCSubsystem):
 
         self.phys_motor_pos = self._motor.theta
 
-        self.ext_motor_position = int(self._motor.theta * 400 * 27.0/(17.5*2*np.pi))
+        encoder_position = int(self._motor.theta * 400 * 27.0/(17.5*2*np.pi))
+
+        self.ext_motor_position = encoder_position
+        self.ext_long_encoder_position = encoder_position
 
         if self._old_prox_1 != self.int_prox_1:
             if self.int_prox_1:
@@ -332,6 +339,8 @@ class SmartConveyorMotor(PLCSubsystem):
 
         if time.time() - self._motor_speed_mes_timer > 1.0:
             average_speed = self.ext_motor_position - self._old_motor_position
+            self.ext_float_motor_speed = (self._motor.theta - self._old_theta)/(2*np.pi*(time.time() - self._motor_speed_mes_timer))
+
             if not average_speed and self.ext_motor_run_cmd: # zero speed but motor enabled
                 _logger.warning("Motor is about to be stuck")
                 if self._old_motor_stuck:  # second time
@@ -344,6 +353,7 @@ class SmartConveyorMotor(PLCSubsystem):
 
             self._motor_speed_mes_timer = time.time()
             self._old_motor_position = self.ext_motor_position
+            self._old_theta = self._motor.theta
 
         if self._old_reset_alarm_cmd != self.ext_reset_alarm_cmd:
             if self.ext_reset_alarm_cmd:
@@ -484,6 +494,39 @@ class SmartConveyorMotor(PLCSubsystem):
     @ext_motor_stuck.setter
     def ext_motor_stuck(self, value: bool):
         self._write_external_variable("motor_stuck", value)
+
+    @property
+    def ext_long_encoder_position(self) -> int:
+        registers = [
+            self._read_external_variable("long_encoder_pos_reg_0"),
+            self._read_external_variable("long_encoder_pos_reg_1"),
+            self._read_external_variable("long_encoder_pos_reg_2"),
+            self._read_external_variable("long_encoder_pos_reg_3")
+        ]
+        return ModbusTcpClient.convert_from_registers(registers, ModbusTcpClient.DATATYPE.INT64)
+
+    @ext_long_encoder_position.setter
+    def ext_long_encoder_position(self, value: int):
+        registers = ModbusTcpClient.convert_to_registers(value, ModbusTcpClient.DATATYPE.INT64)
+        self._write_external_variable("long_encoder_pos_reg_0", registers[0])
+        self._write_external_variable("long_encoder_pos_reg_1", registers[1])
+        self._write_external_variable("long_encoder_pos_reg_2", registers[2])
+        self._write_external_variable("long_encoder_pos_reg_3", registers[3])
+
+    @property
+    def ext_float_motor_speed(self) -> float:
+        registers =  [
+            self._read_external_variable("float_motor_speed_reg_0"),
+            self._read_external_variable("float_motor_speed_reg_1")
+        ]
+
+        return ModbusTcpClient.convert_from_registers(registers, ModbusTcpClient.DATATYPE.FLOAT32)
+
+    @ext_float_motor_speed.setter
+    def ext_float_motor_speed(self, value: float):
+        registers = ModbusTcpClient.convert_to_registers(value, ModbusTcpClient.DATATYPE.FLOAT32)
+        self._write_external_variable("float_motor_speed_reg_0", registers[0])
+        self._write_external_variable("float_motor_speed_reg_1", registers[1])
 
 class SmartConveyorCylinder(PLCSubsystem):
     def __init__(self):
