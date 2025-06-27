@@ -40,6 +40,9 @@ class SmartConveyorPanel(PLCSubsystem):
         self._register_external_variable("panel_motor_on", ModVarType.BOOLEAN, True, False)
         self._register_external_variable("panel_motor_speed", ModVarType.INT16, True, False)
 
+        self._error_panel_reg_len = 35
+        self._add_string_registers("error_panel", self._error_panel_reg_len)
+
         # memory
 
         # triggers ref
@@ -51,6 +54,7 @@ class SmartConveyorPanel(PLCSubsystem):
         self._old_panel_motor_on = False
         self._old_panel_cylinder_on = False
         self._old_emergency = False
+        self._old_panel_state = None
 
         # timer refs
 
@@ -59,6 +63,33 @@ class SmartConveyorPanel(PLCSubsystem):
         self._light_blink_timeout = 0
 
         # physics
+
+    def _add_string_registers(self, variable_name: str, n_registers: int) -> None:
+        for i in range(n_registers):
+            self._register_external_variable( f"{variable_name}_{i}", ModVarType.INT16, True, 0)
+
+    def _panel_state_to_error_string(self, panel_state: int) -> str:
+        s = []
+        if panel_state == 0:
+            s.append("No error")
+        else:
+            if panel_state & 0x01:
+                s.append("cylinder_stuck")
+
+            if panel_state & 0x02:
+                s.append("motor_stuck")
+
+            if panel_state & 0x04:
+                s.append("part_stuck")
+
+            if panel_state & 0x08:
+                s.append("no_pressure_alarm")
+
+            if panel_state & 0x10:
+                s.append("leakage_alarm")
+
+        return " ".join(s)
+
 
     def main_plc_task(self):
 
@@ -119,6 +150,10 @@ class SmartConveyorPanel(PLCSubsystem):
             self.int_red_light = False
 
         self.ext_panel_mode = self.int_switch
+
+        if self._old_panel_state != self.ext_panel_state:
+            self.ext_error_panel_message = self._panel_state_to_error_string(self.ext_panel_state)
+            self._old_panel_state = self.ext_panel_state
 
         self.debug_print()
 
@@ -187,7 +222,7 @@ class SmartConveyorPanel(PLCSubsystem):
         return self._read_external_variable("panel_running")
 
     @property
-    def ext_panel_state(self) -> float:
+    def ext_panel_state(self) -> int:
         return self._read_external_variable("panel_state")
 
     @property
@@ -224,6 +259,18 @@ class SmartConveyorPanel(PLCSubsystem):
     @ext_panel_motor_speed.setter
     def ext_panel_motor_speed(self, value: bool):
         self._write_external_variable("panel_motor_speed", value)
+
+    @property
+    def ext_error_panel_message(self) -> str:
+        registers = [self._read_external_variable(f"error_panel_{i}") for i in range(self._error_panel_reg_len)]
+        return ModbusTcpClient.convert_from_registers([c for c in registers if c !=0], ModbusTcpClient.DATATYPE.STRING)
+
+    @ext_error_panel_message.setter
+    def ext_error_panel_message(self, value: str):
+        registers = ModbusTcpClient.convert_to_registers(value, ModbusTcpClient.DATATYPE.STRING)
+        registers = registers + [0] * (self._error_panel_reg_len - len(registers))
+        for i in range(self._error_panel_reg_len):
+            self._write_external_variable(f"error_panel_{i}", registers[i])
 
 
 class SmartConveyorMotor(PLCSubsystem):
