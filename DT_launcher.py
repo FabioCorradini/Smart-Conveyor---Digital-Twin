@@ -603,6 +603,10 @@ class SmartConveyorCylinder(PLCSubsystem):
         self._register_external_variable("reset_alarm_cmd", ModVarType.BOOLEAN, False, False)
         self._register_external_variable("auto_mode", ModVarType.BOOLEAN, False, False)
 
+        _default_regs = ModbusTcpClient.convert_to_registers(int(5e5), ModbusTcpClient.DATATYPE.UINT32, "little")
+        self._register_external_variable("pressure_controller_reg_0", ModVarType.INT16, False, _default_regs[0])
+        self._register_external_variable("pressure_controller_reg_1", ModVarType.INT16, False, _default_regs[1])
+
         #output
         self._register_external_variable("movement_count", ModVarType.INT16, True, 0)
         self._register_external_variable("pressure_alarm", ModVarType.BOOLEAN, True, False)
@@ -624,6 +628,7 @@ class SmartConveyorCylinder(PLCSubsystem):
         self._old_low_pressure = self.int_low_pressure
         self._old_reset_alarm_cmd = False
         self._old_reset_counters_cmd = False
+        self._old_pressure_controller = 5e5
 
         # timer refs
 
@@ -643,17 +648,21 @@ class SmartConveyorCylinder(PLCSubsystem):
 
         self.int_valve_port = self.ext_flap_cmd and not self.ext_cylinder_alarm_out
 
-        if self._old_low_pressure != self.int_low_pressure:
+        if (self._old_low_pressure != self.int_low_pressure) or (self._old_pressure_controller != self.ext_pressure_controller):
             if self.int_low_pressure:
-                self._crank_drive.pressure = 1.2e5
-                _logger.info(f"New pressure: {1.2e5}")
+                self._crank_drive.pressure = min(1.2e5, float(self.ext_pressure_controller))
+            else:
+                self._crank_drive.pressure = min(5e5, float(self.ext_pressure_controller))
+
+            if self._crank_drive.pressure < 2e5:
+                print("Pressure is too Low!")
                 self.ext_pressure_alarm = True
 
-                _logger.info("Pressure too low!")
-            else:
-                self._crank_drive.pressure = 5e5
-                _logger.info(f"New pressure: {5e5}")
+            _logger.info(f"New pressure: {int(self._crank_drive.pressure)} Pa")
+
             self._old_low_pressure = self.int_low_pressure
+            self._old_pressure_controller = self.ext_pressure_controller
+
 
         if self._old_cmd_port != self.int_valve_port:
             if self.int_valve_port:
@@ -797,6 +806,21 @@ class SmartConveyorCylinder(PLCSubsystem):
     @property
     def ext_reset_alarm_cmd(self) -> bool:
         return self._read_external_variable("reset_alarm_cmd")
+
+    @property
+    def ext_pressure_controller(self) -> int:
+        registers = [
+            self._read_external_variable("pressure_controller_reg_0"),
+            self._read_external_variable("pressure_controller_reg_1")
+        ]
+
+        return ModbusTcpClient.convert_from_registers(registers, ModbusTcpClient.DATATYPE.UINT32, "little")
+
+    @ext_pressure_controller.setter
+    def ext_pressure_controller(self, value: float):
+        registers = ModbusTcpClient.convert_to_registers(value, ModbusTcpClient.DATATYPE.UINT32, "little")
+        self._write_external_variable("pressure_controller_reg_0", registers[0])
+        self._write_external_variable("pressure_controller_reg_1", registers[1])
 
 
 
