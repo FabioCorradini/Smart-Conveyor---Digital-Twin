@@ -443,7 +443,7 @@ class P3dGui(p3dw.Panda3DWorld):
                 loadable.to_state()
             else:
                 if isinstance(loadable, DTNode):
-                    loadable.set_theta((0.0,))
+                    loadable.set_start_position()
                 loadable.to_position()
                 loadable.to_color()
 

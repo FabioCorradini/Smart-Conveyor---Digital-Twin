@@ -8,6 +8,7 @@ from digtwin.utils import constants
 import numpy as np
 from panda3d.core import decode_sRGB_float, LQuaternion, LVector3f
 import argparse
+from pathlib import Path
 
 # PLC subsystems
 
@@ -17,6 +18,7 @@ parser = argparse.ArgumentParser(
                     epilog='Text at the bottom of help')
 
 parser.add_argument('-g', '--global_plc', action='store_true', help="Set the configuration to work with a single PLC")
+parser.add_argument('-s', '--spawn_helper', action='store_true', help="Set a robotic helper")
 
 args = parser.parse_args()
 
@@ -28,6 +30,8 @@ else:
     sc_panel = "smart_conveyor_panel"
     sc_motor = "smart_conveyor_motor"
     sc_cylinder = "smart_conveyor_cylinder"
+
+sc_helper = "smart_conveyor_helper"
 
 # models
 
@@ -587,3 +591,71 @@ low_pressure = DTCheckNode(
 )
 
 low_pressure.save(constants.QT_NODES_DIR)
+
+if args.spawn_helper:
+    smart_helper_node = DTNode(
+        name = "smart_helper_node",
+        source_dev=sc_helper,
+        n_var=3
+    )
+
+    smart_helper_node.add_node_state(
+        state_name="state1",
+        const_shift_matrix=np.array([[1000.0],[1000.0],[5.0]]),
+        var_shift_matrix=np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]]),
+        const_rotation_axis_matrix=np.array([[0.0], [0.0], [1.0]]),
+        var_rotation_axis_matrix=np.zeros((3,3)),
+        var_rotation_angle_matrix=np.array([[0.0, 0.0, 1.0]])
+    )
+
+    smart_helper_node.save(constants.NODES_DIR)
+
+    smart_helper_model = DTModel(
+        name = "smart_helper_model",
+        model_path=r"./Data/obj/smart_helper_body.stl",
+        parent=smart_helper_node,
+        color=(1.0, 0.0, 0.0, 1.0),
+        collision_center=np.array([0.0, 0.0, 50.0]),
+        collision_sides=(137.0, 137.0, 50),
+        solid=True
+    )
+
+    smart_helper_model.save(constants.MODELS_DIR)
+
+    smart_helper_paddle_node = DTNode(
+        name = "smart_helper_paddle_node",
+        parent=smart_helper_node,
+        source_dev=sc_helper
+    )
+
+    smart_helper_paddle_node.add_node_state(
+        state_name="state1",
+        var_shift_matrix=np.array([[0.0], [0.0], [1.0]])
+    )
+
+    smart_helper_paddle_node.save(constants.NODES_DIR)
+
+    smart_helper_paddle_model = DTModel(
+        name = "smart_helper_paddle_model",
+        model_path=r"./Data/obj/smart_helper_paddle_h.stl",
+        parent=smart_helper_paddle_node,
+        color=(0.0, 1.0, 0.0, 1.0),
+        collision_center=np.array([230.0, 0.0, 2.5]),
+        collision_sides=(75, 100, 2.5),
+        solid=True
+    )
+
+    smart_helper_paddle_model.save(constants.MODELS_DIR)
+else:
+
+    if (constants.MODELS_DIR / Path("smart_helper_model.json")).is_file():
+        (constants.MODELS_DIR / Path("smart_helper_model.json")).unlink()
+
+    if (constants.MODELS_DIR / Path("smart_helper_paddle_model.json")).is_file():
+        (constants.MODELS_DIR / Path("smart_helper_paddle_model.json")).unlink()
+
+    if (constants.NODES_DIR/ Path("smart_helper_node.json")).is_file():
+        (constants.NODES_DIR / Path("smart_helper_node.json")).unlink()
+
+    if (constants.NODES_DIR/ Path("smart_helper_paddle_node.json")).is_file():
+        (constants.NODES_DIR / Path("smart_helper_paddle_node.json")).unlink()

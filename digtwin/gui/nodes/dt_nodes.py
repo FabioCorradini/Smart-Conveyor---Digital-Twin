@@ -27,14 +27,18 @@ class DTNode(DTLoadable):
         self._last_theta = None
         self._last_theta_vector = None
         self.fixed = True
-        self.delta_theta = delta_theta if delta_theta is not None else np.zeros((1, n_var))
+        self.delta_theta = delta_theta if delta_theta is not None else np.zeros((n_var, 1))
         self.source_dev = source_dev
         self._theta_state_ref = 0  # what theta set the direction... not optimal :(
 
 
+    def set_start_position(self):
+        self.set_theta([0.0]*self._n_var)
+
+
     def set_theta(self, theta: tuple[float] | list[float]) -> None:
         assert len(theta) == self._n_var
-        theta_vector = np.array(theta).transpose() + self.delta_theta
+        theta_vector = np.array([theta]).transpose() + self.delta_theta
         if self.theta_period is not None:
             # set direction
             if self._last_theta_vector is None:
